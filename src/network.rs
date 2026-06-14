@@ -278,28 +278,13 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
                 }
             }
 
-            // OperationRequest — проверяем param[253] (настоящий код операции)
+            // AttackStart (request) — обновляем позицию
             if *msg_type == 2 {
                 let op_code = crate::photon::read_param(param_bytes, 253);
-                if pkt_count <= 30 {
-                    println!("[CAP] Req op253={:?}", op_code);
-                }
-                if op_code == Some(21) { // Move — позиция мейна
+                if op_code == Some(22) {
                     if let Some((mx, my)) = crate::photon::extract_attackstart_pos(param_bytes) {
                         if let Ok(mut p) = MAIN_POS.lock() { *p = (mx, my); }
-                        println!("[CAP] Move req pos=({:.1},{:.1})", mx, my);
-                    }
-                } else if op_code == Some(22) { // AttackStart — атакующий = мейн
-                    if let Some(attacker_id) = crate::photon::extract_attacker_id(param_bytes) {
-                        let mut main = PLAYER_ENTITY_ID.lock().unwrap();
-                        if *main == 0 || *main != attacker_id {
-                            *main = attacker_id;
-                            println!("[CAP] *** MAIN ID={} (из AttackStart)", attacker_id);
-                        }
-                        if let Some((mx, my)) = crate::photon::extract_attackstart_pos(param_bytes) {
-                            if let Ok(mut p) = MAIN_POS.lock() { *p = (mx, my); }
-                            println!("[CAP] AttackStart pos=({:.1},{:.1})", mx, my);
-                        }
+                        println!("[CAP] AttackStart pos=({:.1},{:.1})", mx, my);
                     }
                 }
             }
