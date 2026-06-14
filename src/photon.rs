@@ -885,16 +885,25 @@ pub fn extract_attacker_id(param_bytes: &[u8]) -> Option<i32> {
     extract_param_id(&params)
 }
 
-/// Извлекает позицию атакующего из AttackStart
-/// param[1] = float[] { x, y }
-pub fn extract_attackstart_pos(param_bytes: &[u8]) -> Option<(f32, f32)> {
+/// Извлекает float-позицию из параметра key
+pub fn extract_float_pos(param_bytes: &[u8], key: u8) -> Option<(f32, f32)> {
     let params = read_parameter_table(param_bytes);
-    match params.get(&1) {
+    match params.get(&key) {
         Some(PhotonValue::FloatArray(a)) if a.len() >= 2 => {
             Some((a[0], a[1]))
         }
         _ => None,
     }
+}
+
+/// Извлекает позицию атакующего из AttackStart (param[1])
+pub fn extract_attackstart_pos(param_bytes: &[u8]) -> Option<(f32, f32)> {
+    extract_float_pos(param_bytes, 1)
+}
+
+/// Извлекает точку клика из AttackStart (param[3])
+pub fn extract_param3_pos(param_bytes: &[u8]) -> Option<(f32, f32)> {
+    extract_float_pos(param_bytes, 3)
 }
 
 /// Извлекает param[key] как int

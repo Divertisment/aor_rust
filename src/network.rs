@@ -278,14 +278,23 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
                 }
             }
 
-            // AttackStart (request) — обновляем позицию
+            // AttackStart (request) — позиция и точка клика (обновляется на месте)
             if *msg_type == 2 {
                 let op_code = crate::photon::read_param(param_bytes, 253);
                 if op_code == Some(22) {
+                    let mut mypos = (0.0, 0.0);
                     if let Some((mx, my)) = crate::photon::extract_attackstart_pos(param_bytes) {
                         if let Ok(mut p) = MAIN_POS.lock() { *p = (mx, my); }
-                        println!("[CAP] AttackStart pos=({:.1},{:.1})", mx, my);
+                        mypos = (mx, my);
                     }
+                    let trg = crate::photon::extract_param3_pos(param_bytes);
+                    if let Some((tx, ty)) = trg {
+                        print!("\r[CAP] AttackStart my=({:.1},{:.1}) trg=({:.1},{:.1})  ", mypos.0, mypos.1, tx, ty);
+                    } else {
+                        print!("\r[CAP] AttackStart my=({:.1},{:.1})  ", mypos.0, mypos.1);
+                    }
+                    use std::io::Write;
+                    let _ = std::io::stdout().flush();
                 }
             }
 
