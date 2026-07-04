@@ -745,15 +745,19 @@ pub fn execute_cmd(cmd: &str, pid: i32) -> String {
         let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
         if parts.len() == 2 {
             if let Ok(id) = parts[1].trim().parse::<i32>() {
-                let mut current = PLAYER_ENTITY_ID.lock().unwrap();
-                if id != 0 || *current == 0 {
-                    *current = id;
-                    println!("[CMD] ID игрока установлен: {}", id);
-                    broadcast_player_id();
-                    format!("OK ID={}", id)
+                if let Ok(mut current) = PLAYER_ENTITY_ID.lock() {
+                    if id != 0 || *current == 0 {
+                        *current = id;
+                        println!("[CMD] ID игрока установлен: {}", id);
+                        broadcast_player_id();
+                        format!("OK ID={}", id)
+                    } else {
+                        println!("[CMD] Игнорирую SETID 0 (уже есть ID={})", *current);
+                        format!("OK IGNORE zero (current={})", *current)
+                    }
                 } else {
-                    println!("[CMD] Игнорирую SETID 0 (уже есть ID={})", *current);
-                    format!("OK IGNORE zero (current={})", *current)
+                    eprintln!("PLAYER_ENTITY_ID mutex poisoned in SETID command");
+                    "ERR internal error".to_string()
                 }
             } else {
                 "ERR invalid id".to_string()
