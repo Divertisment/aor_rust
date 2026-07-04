@@ -8,7 +8,7 @@ use std::thread;
 use std::time::Duration;
 use once_cell::sync::Lazy;
 
-use crate::memory::find_all_collision_grids;
+use crate::memory::{find_all_collision_grids, SCANNED_ENEMIES};
 use crate::photon::serialize_params_from_body;
 
 const AOR_INPUT_KO: &str = "/home/stas/AO_mem_reader/aor_input.ko";
@@ -32,6 +32,8 @@ pub static PACKET_RELAYED: AtomicU64 = AtomicU64::new(0);
 pub static CHAT_IN: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 pub static CHAT_OUT: Lazy<Mutex<Vec<String>>> = Lazy::new(|| Mutex::new(Vec::new()));
 pub static LAST_POS: Mutex<(f32, f32)> = Mutex::new((0.0, 0.0));
+pub static ENTITY_MOVES: Lazy<Mutex<Vec<(i32, f32, f32)>>> = Lazy::new(|| Mutex::new(Vec::new()));
+pub static SCAN_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn relay_client_count() -> usize {
     RELAY_CLIENTS.lock().map(|c| c.len()).unwrap_or(0)
@@ -169,15 +171,6 @@ pub fn start_relay_server(running: Arc<std::sync::atomic::AtomicBool>, game_pid:
                     if let Ok(mut c) = RELAY_CLIENTS.lock() {
                         c.push(stream);
                     }
-                    request_player_id();
-                    // повторный запрос через 3 сек — на случай если C# ещё не получил Join
-                    let running_clone = running.clone();
-                    thread::spawn(move || {
-                        thread::sleep(Duration::from_secs(3));
-                        if running_clone.load(Ordering::Relaxed) {
-                            request_player_id();
-                        }
-                    });
                 }
                 Err(_) => {}
             }
@@ -193,16 +186,25 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
         println!("[-] AF_PACKET socket: root required (errno={})", -fd);
         return;
     }
+    // Таймаут 1с чтобы не виснуть на пустом трафике
+    unsafe {
+        let tv = libc::timeval { tv_sec: 1, tv_usec: 0 };
+        libc::setsockopt(fd, libc::SOL_SOCKET, libc::SO_RCVTIMEO, &tv as *const _ as *const libc::c_void, std::mem::size_of::<libc::timeval>() as libc::socklen_t);
+    }
     println!("[+] AF_PACKET сниффер запущен. Захват порта 5056...");
 
-    // Получаем clients из start_relay_server
-    // Используем глобальный список
     let mut buf = [0u8; 65536];
+    let mut err_count = 0u32;
     let mut pkt_count: u64 = 0;
     let mut last_report = std::time::Instant::now();
     while running.load(Ordering::Relaxed) {
         let n = unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut _, buf.len(), 0) };
-        if n <= 0 { continue; }
+        if n <= 0 {
+            err_count += 1;
+            if err_count > 10 { thread::sleep(Duration::from_millis(50)); }
+            continue;
+        }
+        err_count = 0;
         let n = n as usize;
 
         // Парсим Ethernet/IP/UDP
@@ -253,27 +255,53 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
             PACKET_RELAYED.fetch_add(1, Ordering::Relaxed);
             let dlen = param_bytes.len() as u16;
 
-            if pkt_count <= 100 || *code != 1 {
-                let hex = param_bytes.iter().take(20).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
-                println!("[CAP] X type={} code={} params_len={} hex={}",
-                         msg_type, code, dlen, hex);
-            }
-
-            // ChangeCluster (code=35) — запрашиваем новый ID
-            if *msg_type == 3 && *code == 35 {
-                println!("[CAP] *** ChangeCluster обнаружен! Запрашиваю новый ID...");
-                request_player_id();
-            }
-
-            // KeySync event (param[252] == 595) — сохраняем ключ расшифровки позиций
-            if *msg_type == 4 && *code != 3 {
-                let keysync_code = crate::photon::read_param_252(param_bytes);
-                if keysync_code == Some(595) {
-                    if let Some(key) = crate::photon::read_keysync_params(param_bytes) {
-                        if let Ok(mut k) = KEY_SYNC.lock() {
-                            println!("[KS] KeySync ключ: {:02x?}", key);
-                            *k = Some(key);
+            // C#-style logging — как в Program.cs
+            {
+                let params_str = crate::photon::format_params(param_bytes);
+                match msg_type {
+                    4 => { // event
+                        let ev_name = if *code == 0x01 {
+                            let game_code = crate::photon::read_param(param_bytes, 252).unwrap_or(0);
+                            format!("{} (0x01)", crate::photon::event_name(game_code))
+                        } else {
+                            crate::photon::event_name(*code as i32).to_string()
+                        };
+                        if pkt_count <= 300 || *code == 3 || *code == 0x01 {
+                            println!("[{:>5}] {}{}", pkt_count, ev_name, params_str);
                         }
+                    }
+                    2 => { // request
+                        if pkt_count <= 200 || *code == 22 {
+                            println!("[REQ {}] op=0x{:02x}{}", pkt_count, code, params_str);
+                        }
+                    }
+                    3 => { // response
+                        let ret = crate::photon::read_param(param_bytes, 253).unwrap_or(0);
+                        if pkt_count <= 200 {
+                            println!("[RES {}] op=0x{:02x} ret={}{}", pkt_count, code, ret, params_str);
+                        }
+                    }
+                    _ => {
+                        if pkt_count <= 100 {
+                            println!("[CAP {}] type={} code={}{}", pkt_count, msg_type, code, params_str);
+                        }
+                    }
+                }
+            }
+
+            // ChangeCluster (code=35)
+            if *msg_type == 3 && *code == 35 {
+                println!("[CAP] ChangeCluster обнаружен");
+            }
+
+            // KeySync — сохраняем ключ расшифровки позиций
+            // post_process_event не вызывается для сырых байт, поэтому param[252] отсутствует.
+            // Проверяем напрямую: KeySync приходит как event с param[0] = Bytes[8].
+            if *msg_type == 4 && *code != 3 {
+                if let Some(key) = crate::photon::read_keysync_params(param_bytes) {
+                    if let Ok(mut k) = KEY_SYNC.lock() {
+                        println!("[KS] KeySync ключ: {:02x?}", key);
+                        *k = Some(key);
                     }
                 }
             }
@@ -285,6 +313,7 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
                     let mut mypos = (0.0, 0.0);
                     if let Some((mx, my)) = crate::photon::extract_attackstart_pos(param_bytes) {
                         if let Ok(mut p) = MAIN_POS.lock() { *p = (mx, my); }
+                        if let Ok(mut p) = LAST_POS.lock() { *p = (mx, my); }
                         mypos = (mx, my);
                     }
                     let trg = crate::photon::extract_param3_pos(param_bytes);
@@ -304,10 +333,22 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
                 if let Some((eid, mx, my)) = crate::photon::read_move_params(param_bytes, ks_key) {
                     let hex = param_bytes.iter().take(40).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
                     println!("[CAP] MOVE id={} pos=({:.1},{:.1}) params_hex={}", eid, mx, my, hex);
+                    // Фильтр: позиция в разумных пределах карты
+                    if !mx.is_finite() || !my.is_finite() || mx.abs() > 50000.0 || my.abs() > 50000.0 {
+                        continue;
+                    }
                     let main_id = *PLAYER_ENTITY_ID.lock().unwrap();
-                    if eid == main_id {
+                    if main_id == 0 {
+                        // Авто-определение игрока: первый Move с реальными координатами
+                        if let Ok(mut pid) = PLAYER_ENTITY_ID.lock() { *pid = eid; }
                         if let Ok(mut p) = MAIN_POS.lock() { *p = (mx, my); }
-                        broadcast_player_id();
+                        if let Ok(mut p) = LAST_POS.lock() { *p = (mx, my); }
+                        println!("[CAP] *** AUTO-PLAYER ID={} pos=({:.1},{:.1})", eid, mx, my);
+                        broadcast_main_position();
+                    } else if eid == main_id {
+                        if let Ok(mut p) = MAIN_POS.lock() { *p = (mx, my); }
+                        if let Ok(mut p) = LAST_POS.lock() { *p = (mx, my); }
+                        broadcast_main_position();
                     } else {
                         let mut slave = SLAVE_ID.lock().unwrap();
                         if *slave == 0 {
@@ -319,8 +360,14 @@ pub fn start_packet_capture(running: Arc<std::sync::atomic::AtomicBool>, game_pi
                             drop(slave);
                             println!("[CAP] SLAVE MOVE id={} pos=({:.1},{:.1})", eid, mx, my);
                             broadcast_slave_position();
+                        } else {
+                            drop(slave);
+                            if let Ok(mut em) = ENTITY_MOVES.lock() {
+                                em.push((eid, mx, my));
+                            }
                         }
                     }
+
                 }
             }
 
@@ -410,8 +457,13 @@ fn extract_photon_messages(raw: &[u8], debug: bool) -> Vec<(u8, u8, Vec<u8>)> {
 
                 let body = raw[body_off..body_off + body_len.min(raw.len() - body_off)].to_vec();
                 if body.is_empty() { continue; }
-                let params = serialize_params_from_body(mtype, &body);
+                let mut params = serialize_params_from_body(mtype, &body);
                 let code = body[0];
+                // Post-process event params like C# EventProcessor.PostProcessEvent
+                if mtype == 4 {
+                    let pp = crate::photon::post_process_event_params(&params, code);
+                    if pp != vec![0u8] { params = pp; }
+                }
                 if code == 23 && debug {
                     let full_hex = body.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
                     println!("[CAP] *** ATTACKSTART *** msg_type={} full_hex={}", mtype, full_hex);
@@ -438,8 +490,13 @@ fn extract_photon_messages(raw: &[u8], debug: bool) -> Vec<(u8, u8, Vec<u8>)> {
                 let body_start = payload_start + 1;
                 let body = raw[body_start..body_start + (payload_len - 1).min(raw.len() - body_start)].to_vec();
                 if body.is_empty() { continue; }
-                let params = serialize_params_from_body(mtype, &body);
+                let mut params = serialize_params_from_body(mtype, &body);
                 let code = body[0];
+                // Post-process event params like C# EventProcessor.PostProcessEvent
+                if mtype == 4 {
+                    let pp = crate::photon::post_process_event_params(&params, code);
+                    if pp != vec![0u8] { params = pp; }
+                }
                 if debug {
                     let hex = body.iter().take(32).map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ");
                     println!("[CAP] cmd0x01 MATCH msg_type={} code={} body_hex={} params_len={}", mtype, code, hex, params.len());
@@ -536,6 +593,52 @@ pub fn broadcast_slave_position() {
     }
 }
 
+/// Шлёт relay-клиентам все ближайшие сущности (type=5, code=2)
+pub fn broadcast_filtered_entities() {
+    let em = ENTITY_MOVES.lock().unwrap();
+    let entries: Vec<(i32, f32, f32)> = em.iter().copied().collect();
+    drop(em);
+    if entries.is_empty() { return; }
+    let mut out = Vec::with_capacity(8 + entries.len() * 12);
+    out.extend_from_slice(&[0, 0, 0, 0]); // src_ip
+    out.push(5); out.push(2);              // type=5, code=2
+    let body_len = (entries.len() * 12) as u16;
+    out.extend_from_slice(&body_len.to_le_bytes());
+    for (id, x, y) in &entries {
+        out.extend_from_slice(&id.to_le_bytes());
+        out.extend_from_slice(&x.to_le_bytes());
+        out.extend_from_slice(&y.to_le_bytes());
+    }
+    use std::io::Write;
+    if let Ok(mut clients) = RELAY_CLIENTS.lock() {
+        for client in clients.iter_mut() {
+            let _ = client.write_all(&out);
+        }
+    }
+}
+
+/// Фоновый цикл: 4 раза в секунду фильтрует кандидатов (≤20м от MAIN_POS) и шлёт на relay
+pub fn auto_filter_loop(running: Arc<std::sync::atomic::AtomicBool>) {
+    while running.load(Ordering::Relaxed) {
+        thread::sleep(Duration::from_millis(250));
+        if !SCAN_ACTIVE.load(Ordering::Relaxed) { continue; }
+        let (mx, my) = {
+            let p = *MAIN_POS.lock().unwrap_or_else(|e| e.into_inner());
+            if p == (0.0, 0.0) { *LAST_POS.lock().unwrap_or_else(|e| e.into_inner()) } else { p }
+        };
+        if mx == 0.0 && my == 0.0 { continue; }
+        let near = crate::memory::filter_nearby_positions(mx, my, 20.0);
+        if near.is_empty() { continue; }
+        if let Ok(mut em) = ENTITY_MOVES.lock() {
+            em.clear();
+            for (id, x, y) in &near {
+                em.push((*id, *x, *y));
+            }
+        }
+        broadcast_filtered_entities();
+    }
+}
+
 pub fn afk_start() {
     let mut proc = AFK_PROCESS.lock().unwrap();
     if proc.is_some() {
@@ -599,21 +702,20 @@ pub fn execute_cmd(cmd: &str, pid: i32) -> String {
             "ERR need id".to_string()
         }
     } else if cmd == "SCANALL" {
-        let result = crate::memory::find_player_entity_id(pid);
-        if let Some((id, x, y, z, addr)) = result {
-            *PLAYER_ENTITY_ID.lock().unwrap() = id;
-            println!("[CMD] Авто-ID: {} pos=({:.1},{:.1},{:.1}) @ 0x{:x}", id, x, y, z, addr);
-            broadcast_player_id();
-            format!("OK ID={} POS=({:.1},{:.1},{:.1})", id, x, y, z)
-        } else {
-            "ERR not found".to_string()
-        }
+        let candidates = crate::memory::find_candidate_positions(pid);
+        let count = candidates.len();
+        println!("[CMD] SCANALL: найдено {} кандидатов, сканирование активно", count);
+        SCAN_ACTIVE.store(true, Ordering::Relaxed);
+        format!("OK SCANALL {} candidates scan_active", count)
     } else if cmd.starts_with("SCANID ") {
         let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
         if parts.len() == 2 {
             if let Ok(id) = parts[1].trim().parse::<i32>() {
-                crate::memory::scan_id_addrs(pid, id);
-                format!("OK SCANID={}", id)
+                let addrs = crate::memory::scan_id_addrs(pid, id);
+                for a in addrs.iter().take(10) {
+                    println!("[SCANID] ID={} found at 0x{:x}", id, a);
+                }
+                format!("OK SCANID={} found={}", id, addrs.len())
             } else {
                 "ERR invalid id".to_string()
             }
@@ -687,10 +789,31 @@ pub fn execute_cmd(cmd: &str, pid: i32) -> String {
         let afk = AFK_PROCESS.lock().unwrap().is_some();
         let ename = PLAYER_NAME.lock().unwrap().clone();
         let sname = SLAVE_NAME.lock().unwrap().clone();
-        let (px, py) = LAST_POS.lock().map(|p| *p).unwrap_or((0.0, 0.0));
+        let (px, py) = { let p = *MAIN_POS.lock().unwrap_or_else(|e| e.into_inner()); if p == (0.0,0.0) { *LAST_POS.lock().unwrap_or_else(|e| e.into_inner()) } else { p } };
         let (sx, sy) = SLAVE_POS.lock().map(|p| *p).unwrap_or((0.0, 0.0));
-        format!(r#"{{"running":true,"version":"v1.1","clients":{},"entity_id":{},"entity_name":"{}","slave":"{}","slave_id":{},"pos_x":{:.2},"pos_y":{:.2},"slave_x":{:.2},"slave_y":{:.2},"packets_captured":{},"packets_relayed":{},"afk":{}}}"#,
-                clients, eid, ename.replace('"', "\\\""), sname.replace('"', "\\\""), sid, px, py, sx, sy, captured, relayed, if afk { "true" } else { "false" })
+        let mut seen = std::collections::HashSet::new();
+        let mut entities_json = String::new();
+        // Сначала coord-сущности (Mtest стиль, фоновый скан)
+        if let Ok(scanned) = SCANNED_ENEMIES.lock() {
+            for &(id, x, y, go, kl) in scanned.iter() {
+                if seen.insert(id) {
+                    if !entities_json.is_empty() { entities_json.push(','); }
+                    entities_json.push_str(&format!(r#"{{"id":{},"x":{:.2},"y":{:.2},"mc":"0x{:x}"}}"#, id, x, y, go));
+                }
+            }
+        }
+        // Потом MOVE сущности (перезаписывают heap, если есть коллизия)
+        if let Ok(em) = ENTITY_MOVES.lock() {
+            for (id, x, y) in em.iter() {
+                if seen.insert(*id) {
+                    if !entities_json.is_empty() { entities_json.push(','); }
+                    entities_json.push_str(&format!(r#"{{"id":{},"x":{:.2},"y":{:.2},"mc":"-"}}"#, id, x, y));
+                }
+            }
+        }
+        let scanned = crate::memory::SCANNED_CANDIDATES.lock().map(|s| s.len()).unwrap_or(0);
+        format!(r#"{{"running":true,"version":"v1.1","clients":{},"entity_id":{},"entity_name":"{}","slave":"{}","slave_id":{},"pos_x":{:.2},"pos_y":{:.2},"slave_x":{:.2},"slave_y":{:.2},"packets_captured":{},"packets_relayed":{},"afk":{},"scanned":{},"entities":[{}]}}"#,
+                clients, eid, ename.replace('"', "\\\""), sname.replace('"', "\\\""), sid, px, py, sx, sy, captured, relayed, if afk { "true" } else { "false" }, scanned, entities_json)
     } else if cmd == "AFK ON" {
         afk_start();
         "OK AFK ON".to_string()
@@ -700,10 +823,65 @@ pub fn execute_cmd(cmd: &str, pid: i32) -> String {
     } else if cmd == "REQUESTID" {
         request_player_id();
         "OK REQUESTID".to_string()
+    } else if cmd == "SCANSTOP" {
+        SCAN_ACTIVE.store(false, Ordering::Relaxed);
+        if let Ok(mut em) = ENTITY_MOVES.lock() { em.clear(); }
+        println!("[CMD] SCANSTOP: сканирование остановлено");
+        "OK SCANSTOP".to_string()
+    } else if cmd.starts_with("SETPOS ") {
+        let args = cmd[7..].trim();
+        let parts: Vec<&str> = args.split(|c| c == ' ' || c == ',').collect();
+        if parts.len() >= 2 {
+            if let (Ok(x), Ok(y)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>()) {
+                if let Ok(mut p) = MAIN_POS.lock() { *p = (x, y); }
+                if let Ok(mut p) = LAST_POS.lock() { *p = (x, y); }
+                println!("[CMD] SETPOS ({:.2},{:.2})", x, y);
+                format!("OK SETPOS ({:.2},{:.2})", x, y)
+            } else {
+                "ERR bad coords".to_string()
+            }
+        } else {
+            "ERR need x y".to_string()
+        }
     } else if cmd == "SHUTDOWN" {
         "OK SHUTDOWN".to_string()
     } else {
         format!("ERR unknown command: {}", cmd)
+    }
+}
+
+/// Статус сервер на порту 4447 (используется AOR_web для STATUS_JSON)
+pub fn start_status_server(running: Arc<std::sync::atomic::AtomicBool>, pid: i32) {
+    let listener = match TcpListener::bind("127.0.0.1:4447") {
+        Ok(l) => l,
+        Err(e) => { println!("[CMD] не удалось биндить 4447: {}", e); return; }
+    };
+    println!("[CMD] Статус сервер на порту 4447");
+    listener.set_nonblocking(true).ok();
+    while running.load(Ordering::Relaxed) {
+        match listener.accept() {
+            Ok((stream, addr)) => {
+                println!("[CMD] Подключен клиент к статусу: {}", addr);
+                let r = running.clone();
+                thread::spawn(move || {
+                    let mut reader = BufReader::new(&stream);
+                    let mut writer = &stream;
+                    loop {
+                        let mut line = String::new();
+                        match reader.read_line(&mut line) {
+                            Ok(0) | Err(_) => break,
+                            Ok(_) => {}
+                        }
+                        let cmd = line.trim();
+                        if cmd.is_empty() { continue; }
+                        let resp = execute_cmd(cmd, pid);
+                        let _ = writeln!(writer, "{}", resp);
+                    }
+                });
+            }
+            Err(_) => {}
+        }
+        thread::sleep(Duration::from_millis(200));
     }
 }
 

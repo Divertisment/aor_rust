@@ -824,6 +824,20 @@ fn extract_move_positions(params: &mut HashMap<u8, PhotonValue>) {
     params.insert(5, PhotonValue::Float(y.to_bits()));
 }
 
+/// Post-processing для сырых байт параметров события (как C# EventProcessor.PostProcessEvent).
+/// Добавляет param[252] = code для event code 0x01, извлекает позиции для Move (code=3).
+/// Возвращает новые байты параметров с добавленными полями.
+pub fn post_process_event_params(param_bytes: &[u8], code: u8) -> Vec<u8> {
+    let mut params = read_parameter_table(param_bytes);
+    if !params.contains_key(&252) {
+        params.insert(252, PhotonValue::Byte(code));
+    }
+    if code == 3 {
+        extract_move_positions(&mut params);
+    }
+    serialize_params(&params)
+}
+
 /// Парсит Move event и если позиция совпадает с player_x/player_y — возвращает entity_id
 pub fn extract_move_entity_id(param_bytes: &[u8], player_x: f32, player_y: f32) -> Option<i32> {
     let params = read_parameter_table(param_bytes);
@@ -848,11 +862,40 @@ pub fn extract_move_entity_id(param_bytes: &[u8], player_x: f32, player_y: f32) 
 pub fn read_move_params(param_bytes: &[u8], ks_key: Option<[u8; 8]>) -> Option<(i32, f32, f32)> {
     let params = read_parameter_table(param_bytes);
     let entity_id = extract_param_id(&params)?;
+    // Новый формат: координаты как Float в param[4] и param[5]
+    if let (Some(PhotonValue::Float(xb)), Some(PhotonValue::Float(yb))) = (params.get(&4), params.get(&5)) {
+        let x = f32::from_bits(*xb);
+        let y = f32::from_bits(*yb);
+        if x.is_finite() && y.is_finite() && x.abs() <= 50000.0 && y.abs() <= 50000.0 {
+            return Some((entity_id, x, y));
+        }
+    }
+    // Новый формат: только X в param[4] (Y может быть в следующем пакете)
+    if let Some(PhotonValue::Float(xb)) = params.get(&4) {
+        let x = f32::from_bits(*xb);
+        if x.is_finite() && x.abs() <= 50000.0 {
+            if let Some(PhotonValue::Float(yb)) = params.get(&5) {
+                let y = f32::from_bits(*yb);
+                if y.is_finite() && y.abs() <= 50000.0 {
+                    return Some((entity_id, x, y));
+                }
+            }
+            // Y может быть в param[5] без Float тега — пробуем байты
+            return None;
+        }
+    }
+    // Новый формат: только Y в param[5]
+    if let Some(PhotonValue::Float(yb)) = params.get(&5) {
+        let y = f32::from_bits(*yb);
+        if y.is_finite() && y.abs() <= 50000.0 {
+            return None; // без X не используем
+        }
+    }
+    // Старый формат: координаты в param[1] byte[>=17]
     let mut raw = match params.get(&1) {
         Some(PhotonValue::Bytes(b)) if b.len() >= 17 => b.clone(),
         _ => return None,
     };
-    // Применяем KeySync XOR расшифровку если есть ключ
     if let Some(key) = ks_key {
         for i in 0..4 {
             raw[9 + i] ^= key[i];
@@ -883,6 +926,79 @@ pub fn read_keysync_params(param_bytes: &[u8]) -> Option<[u8; 8]> {
 pub fn extract_attacker_id(param_bytes: &[u8]) -> Option<i32> {
     let params = read_parameter_table(param_bytes);
     extract_param_id(&params)
+}
+
+/// Имена событий как в C# Events enum: Leave=1, JoinFinished=2, Move=3, Teleport=4 ...
+pub fn event_name(code: i32) -> &'static str {
+    match code {
+        0 => "None",
+        1 => "Leave",
+        2 => "JoinFinished",
+        3 => "Move",
+        4 => "Teleport",
+        5 => "ChangeEquipment",
+        6 => "HealthUpdate",
+        7 => "HealthUpdates",
+        8 => "EnergyUpdate",
+        9 => "DamageShieldUpdate",
+        10 => "CraftingFocusUpdate",
+        11 => "ResetCooldowns",
+        12 => "Attack",
+        13 => "CastStart",
+        14 => "ChannelingUpdate",
+        15 => "CastCancel",
+        16 => "CastTimeUpdate",
+        17 => "CastFinished",
+        18 => "CastSpell",
+        19 => "CastSpells",
+        20 => "CastHit",
+        21 => "CastHits",
+        22 => "StoredTargetsUpdate",
+        23 => "ChannelingEnded",
+        24 => "AttackBuilding",
+        // game-level codes (from param[252] for event 0x01):
+        595 => "KeySync",
+        _ => "Unknown",
+    }
+}
+
+/// Форматирует параметры как C# PrintParams: params={count} [key]=value [key]=value ...
+pub fn format_params(param_bytes: &[u8]) -> String {
+    let params = read_parameter_table(param_bytes);
+    if params.is_empty() {
+        return " (no params)".to_string();
+    }
+    let mut out = format!(" params={}", params.len());
+    let mut keys: Vec<&u8> = params.keys().collect();
+    keys.sort();
+    for k in keys {
+        let v = &params[k];
+        let s = match v {
+            PhotonValue::Null => "null".to_string(),
+            PhotonValue::Boolean(b) => b.to_string(),
+            PhotonValue::Byte(b) => format!("{}", b),
+            PhotonValue::Short(n) => format!("{}", n),
+            PhotonValue::Int(n) => format!("{}", n),
+            PhotonValue::Long(n) => format!("{}", n),
+            PhotonValue::Float(f) => format!("{}", f32::from_bits(*f)),
+            PhotonValue::Double(d) => format!("{}", f64::from_bits(*d)),
+            PhotonValue::String(s) => format!("\"{}\"", s),
+            PhotonValue::Bytes(b) => format!("byte[{}]", b.len()),
+            PhotonValue::Array(a) => format!("array[{}]", a.len()),
+            PhotonValue::BooleanArray(a) => format!("bool[{}]", a.len()),
+            PhotonValue::ShortArray(a) => format!("short[{}]", a.len()),
+            PhotonValue::IntArray(a) => format!("int[{}]", a.len()),
+            PhotonValue::LongArray(a) => format!("long[{}]", a.len()),
+            PhotonValue::FloatArray(a) => format!("float[{}]", a.len()),
+            PhotonValue::DoubleArray(a) => format!("double[{}]", a.len()),
+            PhotonValue::StringArray(a) => format!("string[{}]", a.len()),
+            PhotonValue::Dictionary(d) => format!("dict[{}]", d.len()),
+            PhotonValue::ObjectArray(a) => format!("obj[{}]", a.len()),
+        };
+        let s = if s.len() > 80 { format!("{}...", &s[..77]) } else { s };
+        out.push_str(&format!(" [{}]={}", k, s));
+    }
+    out
 }
 
 /// Извлекает float-позицию из параметра key
