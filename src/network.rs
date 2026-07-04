@@ -42,11 +42,13 @@ pub fn relay_client_count() -> usize {
 pub fn set_keysync(key: [u8; 8]) {
     if let Ok(mut k) = KEY_SYNC.lock() {
         *k = Some(key);
+    } else {
+        eprintln!("KEY_SYNC mutex poisoned in set_keysync");
     }
 }
 
 pub fn get_keysync() -> Option<[u8; 8]> {
-    KEY_SYNC.lock().ok().and_then(|k| *k)
+    KEY_SYNC.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
 // ---- Оригинальный сервер коллизий (порт 4444) ----
@@ -595,13 +597,16 @@ pub fn broadcast_slave_position() {
 
 /// Шлёт relay-клиентам все ближайшие сущности (type=5, code=2)
 pub fn broadcast_filtered_entities() {
-    let em = ENTITY_MOVES.lock().unwrap();
+    let em = ENTITY_MOVES.lock().unwrap_or_else(|e| e.into_inner());
     let entries: Vec<(i32, f32, f32)> = em.iter().copied().collect();
     drop(em);
-    if entries.is_empty() { return; }
+    if entries.is_empty() {
+        return;
+    }
     let mut out = Vec::with_capacity(8 + entries.len() * 12);
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip
-    out.push(5); out.push(2);              // type=5, code=2
+    out.push(5);
+    out.push(2); // type=5, code=2
     let body_len = (entries.len() * 12) as u16;
     out.extend_from_slice(&body_len.to_le_bytes());
     for (id, x, y) in &entries {
@@ -609,10 +614,15 @@ pub fn broadcast_filtered_entities() {
         out.extend_from_slice(&x.to_le_bytes());
         out.extend_from_slice(&y.to_le_bytes());
     }
-    use std::io::Write;
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
-        for client in clients.iter_mut() {
-            let _ = client.write_all(&out);
+        let mut i = 0;
+        while i < clients.len() {
+            match clients[i].write_all(&out) {
+                Ok(()) => i += 1,
+                Err(_) => {
+                    clients.remove(i);
+                }
+            }
         }
     }
 }
@@ -623,8 +633,12 @@ pub fn auto_filter_loop(running: Arc<std::sync::atomic::AtomicBool>) {
         thread::sleep(Duration::from_millis(250));
         if !SCAN_ACTIVE.load(Ordering::Relaxed) { continue; }
         let (mx, my) = {
-            let p = *MAIN_POS.lock().unwrap_or_else(|e| e.into_inner());
-            if p == (0.0, 0.0) { *LAST_POS.lock().unwrap_or_else(|e| e.into_inner()) } else { p }
+            let main_pos_guard = MAIN_POS.lock().unwrap_or_else(|e| e.into_inner());
+            if *main_pos_guard == (0.0, 0.0) {
+                *LAST_POS.lock().unwrap_or_else(|e| e.into_inner())
+            } else {
+                *main_pos_guard
+            }
         };
         if mx == 0.0 && my == 0.0 { continue; }
         let near = crate::memory::filter_nearby_positions(mx, my, 20.0);

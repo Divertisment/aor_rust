@@ -83,8 +83,8 @@ pub enum PhotonValue {
     Short(i16),
     Int(i32),
     Long(i64),
-    Float(u32),
-    Double(u64),
+    Float(f32), // Changed from u32 to f32
+    Double(f64), // Changed from u64 to f64
     String(String),
     Bytes(Vec<u8>),
     Array(Vec<PhotonValue>),
@@ -165,7 +165,7 @@ impl std::hash::Hash for PhotonValue {
 impl PhotonValue {
     pub fn as_f32(&self) -> Option<f32> {
         match self {
-            PhotonValue::Float(v) => Some(f32::from_bits(*v)),
+            PhotonValue::Float(v) => Some(*v), // Changed: direct value
             PhotonValue::Int(v) => Some(*v as f32),
             PhotonValue::Short(v) => Some(*v as f32),
             PhotonValue::Byte(v) => Some(*v as f32),
@@ -364,9 +364,13 @@ impl PhotonParser {
 
         let offset = offset + frag_len;
 
-        if let Some(seg) = self.pending_segments.remove(&start_seq) {
+        // Check if the segment is complete before removing and processing
+        if let Some(seg) = self.pending_segments.get(&start_seq) {
             if seg.bytes_written >= seg.total_length {
-                self.handle_send_reliable(&seg.payload, 0, seg.payload.len());
+                // Segment is complete, process it
+                if let Some(seg) = self.pending_segments.remove(&start_seq) { // Remove only after confirmation
+                    self.handle_send_reliable(&seg.payload, 0, seg.payload.len());
+                }
             }
         }
 
@@ -504,13 +508,13 @@ fn deserialize_value(data: &[u8], tc: u8) -> Option<(PhotonValue, usize)> {
         }
         TYPE_FLOAT => {
             if data.len() < 4 { return None; }
-            let v = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+            let v = f32::from_le_bytes([data[0], data[1], data[2], data[3]]); // Changed to f32::from_le_bytes
             Some((PhotonValue::Float(v), 4))
         }
         TYPE_DOUBLE => {
             if data.len() < 8 { return None; }
-            let v = u64::from_le_bytes(
-                [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]]);
+            let v = f64::from_le_bytes(
+                [data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]]); // Changed to f64::from_le_bytes
             Some((PhotonValue::Double(v), 8))
         }
         TYPE_STRING => read_photon_string(data),
@@ -820,8 +824,8 @@ fn extract_move_positions(params: &mut HashMap<u8, PhotonValue>) {
     if x.is_nan() || x.is_infinite() || y.is_nan() || y.is_infinite() {
         return;
     }
-    params.insert(4, PhotonValue::Float(x.to_bits()));
-    params.insert(5, PhotonValue::Float(y.to_bits()));
+    params.insert(4, PhotonValue::Float(x)); // Changed: direct f32
+    params.insert(5, PhotonValue::Float(y)); // Changed: direct f32
 }
 
 /// Post-processing для сырых байт параметров события (как C# EventProcessor.PostProcessEvent).
@@ -980,8 +984,8 @@ pub fn format_params(param_bytes: &[u8]) -> String {
             PhotonValue::Short(n) => format!("{}", n),
             PhotonValue::Int(n) => format!("{}", n),
             PhotonValue::Long(n) => format!("{}", n),
-            PhotonValue::Float(f) => format!("{}", f32::from_bits(*f)),
-            PhotonValue::Double(d) => format!("{}", f64::from_bits(*d)),
+            PhotonValue::Float(f) => format!("{}", *f), // Changed: direct f32
+            PhotonValue::Double(d) => format!("{}", *d), // Changed: direct f64
             PhotonValue::String(s) => format!("\"{}\"", s),
             PhotonValue::Bytes(b) => format!("byte[{}]", b.len()),
             PhotonValue::Array(a) => format!("array[{}]", a.len()),
@@ -1124,11 +1128,11 @@ fn write_value(out: &mut Vec<u8>, val: &PhotonValue) {
             }
         }
         PhotonValue::Float(v) => {
-            if *v == 0 { out.push(TYPE_FLOAT_ZERO); }
+            if *v == 0.0 { out.push(TYPE_FLOAT_ZERO); } // Changed: compare with 0.0f32
             else { out.push(TYPE_FLOAT); out.extend_from_slice(&v.to_le_bytes()); }
         }
         PhotonValue::Double(v) => {
-            if *v == 0 { out.push(TYPE_DOUBLE_ZERO); }
+            if *v == 0.0 { out.push(TYPE_DOUBLE_ZERO); } // Changed: compare with 0.0f64
             else { out.push(TYPE_DOUBLE); out.extend_from_slice(&v.to_le_bytes()); }
         }
         PhotonValue::String(s) => {
