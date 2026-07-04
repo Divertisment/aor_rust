@@ -541,7 +541,7 @@ pub fn broadcast_player_id() {
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip = 0 (маркер системы)
     out.push(255); // type=255 = identity
     out.push(0); // code=0
-    out.extend_from_slice(&4u16::to_le_bytes()); // len=4
+    out.extend_from_slice(&4u16.to_le_bytes()); // len=4
     out.extend_from_slice(&id.to_le_bytes()); // id
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
         let mut i = 0;
@@ -563,7 +563,7 @@ pub fn request_player_id() {
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip = 0
     out.push(254); // type=254 = request_id
     out.push(0); // code=0
-    out.extend_from_slice(&0u16::to_le_bytes()); // len=0
+    out.extend_from_slice(&0u16.to_le_bytes()); // len=0
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
         let mut i = 0;
         while i < clients.len() {
@@ -596,10 +596,10 @@ pub fn broadcast_main_position() {
     out.extend_from_slice(&[0, 0, 0, 0]);
     out.push(5);
     out.push(0);
-    out.extend_from_slice(&12u16::to_le_bytes());
+    out.extend_from_slice(&12u16.to_le_bytes());
     out.extend_from_slice(&mx.to_le_bytes());
     out.extend_from_slice(&my.to_le_bytes());
-    out.extend_from_slice(&0f32::to_le_bytes()); // z=0
+    out.extend_from_slice(&0f32.to_le_bytes()); // z=0
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
         let mut i = 0;
         while i < clients.len() {
@@ -624,7 +624,7 @@ pub fn broadcast_slave_position() {
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip
     out.push(5);
     out.push(1); // type=5, code=1
-    out.extend_from_slice(&12u16::to_le_bytes()); // len=12
+    out.extend_from_slice(&12u16.to_le_bytes()); // len=12
     out.extend_from_slice(&sid.to_le_bytes());
     out.extend_from_slice(&sx.to_le_bytes());
     out.extend_from_slice(&sy.to_le_bytes());
