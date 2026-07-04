@@ -1,9 +1,126 @@
+use std::collections::HashMap;
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader, Read, Write, stdout};
 use std::path::Path;
 use std::sync::Mutex;
+use once_cell::sync::Lazy;
 
 static ENTITY_ADDRS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
+static COORD_TRACKER: Lazy<Mutex<HashMap<u64, (f32, f32, bool)>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+pub static SCANNED_ENEMIES: Lazy<Mutex<Vec<(i32, f32, f32, u64, u64)>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static GOM_ADDR: Mutex<u64> = Mutex::new(0);
+pub static SCANNED_CANDIDATES: Lazy<Mutex<Vec<(f32, f32, f32, u64)>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+fn find_gom_address(pid: i32) -> Option<u64> {
+    let maps = std::fs::read_to_string(format!("/proc/{}/maps", pid)).ok()?;
+    let mut unity_base = 0u64;
+    let mut unity_size = 0u64;
+    for line in maps.lines() {
+        if line.contains("UnityPlayer.so") && line.contains("r-xp") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            let range: Vec<&str> = parts[0].split('-').collect();
+            unity_base = u64::from_str_radix(range[0], 16).ok()?;
+            unity_size = u64::from_str_radix(range[1], 16).ok()? - unity_base;
+            break;
+        }
+    }
+    if unity_base == 0 { return None; }
+    const FIND_OBJECTS_TYPE_IMPL_OFFSET: u64 = 0x9EAB80;
+    let fn_addr = unity_base + FIND_OBJECTS_TYPE_IMPL_OFFSET;
+    let mut code = [0u8; 0x200];
+    if !read_process_memory(pid, fn_addr, &mut code) { return None; }
+    for i in 0..code.len().saturating_sub(7) {
+        if code[i] == 0x48 && (code[i+1] == 0x8D || code[i+1] == 0x8B) && code[i+2] == 0x05 {
+            let disp = i32::from_le_bytes(code[i+3..i+7].try_into().unwrap()) as i64;
+            let rip = (fn_addr + i as u64 + 7) as i64;
+            let target = (rip + disp) as u64;
+            if target > 0x10000 && target < 0x800000000000 {
+                return Some(target);
+            }
+        }
+    }
+    None
+}
+
+fn walk_gom_entities(pid: i32, gom: u64) -> Vec<(i32, f32, f32, u64, u64)> {
+    let mut entities = Vec::new();
+    let mut sb = [0u8; 16];
+    if !read_process_memory(pid, gom + 0x18, &mut sb) { return entities; }
+    let sentinel_next = u64::from_le_bytes(sb[8..16].try_into().unwrap());
+    if sentinel_next == gom + 0x18 { return entities; }
+    let mut node = sentinel_next;
+    let mut count = 0;
+    while node != gom + 0x18 && count < 500 && entities.len() < 200 {
+        count += 1;
+        let game_obj = node - 0x68;
+        let mut gob = [0u8; 0x80];
+        if !read_process_memory(pid, game_obj, &mut gob) { break; }
+        let klass = u64::from_le_bytes(gob[0x00..0x08].try_into().unwrap());
+        let transform_ptr = u64::from_le_bytes(gob[0x10..0x18].try_into().unwrap());
+        let mut entity_id = 0i32;
+        let mut pos_x = 0.0f32;
+        let mut pos_y = 0.0f32;
+        let mut have_pos = false;
+        if transform_ptr >= 0x700000000000 && transform_ptr <= 0x800000000000 {
+            let mut tb = [0u8; 0xA0];
+            if read_process_memory(pid, transform_ptr, &mut tb) {
+                for off in (0x38..0x98).step_by(4) {
+                    if off + 8 > tb.len() { break; }
+                    let x = f32::from_le_bytes(tb[off..off+4].try_into().unwrap());
+                    let y = f32::from_le_bytes(tb[off+4..off+8].try_into().unwrap());
+                    if x.is_finite() && y.is_finite() && x.abs() > 0.5 && x.abs() < 20000.0 && y.abs() > 0.5 && y.abs() < 20000.0 {
+                        pos_x = x; pos_y = y; have_pos = true; break;
+                    }
+                }
+            }
+        }
+        if have_pos {
+            for off in (0x20..0x70).step_by(4) {
+                if off + 4 > gob.len() { break; }
+                let val = i32::from_le_bytes(gob[off..off+4].try_into().unwrap());
+                if val > 100_000 && val < 50_000_000 { entity_id = val; break; }
+            }
+            if entity_id == 0 {
+                let scan_addr = game_obj.saturating_sub(128);
+                let mut sd = [0u8; 256];
+                if read_process_memory(pid, scan_addr, &mut sd) {
+                    let rel_off = (game_obj - scan_addr) as usize;
+                    for i in (0..=rel_off).step_by(4) {
+                        if i + 4 > sd.len() { break; }
+                        let val = i32::from_le_bytes(sd[i..i+4].try_into().unwrap());
+                        if val > 100_000 && val < 50_000_000 { entity_id = val; break; }
+                    }
+                }
+            }
+            if entity_id != 0 { entities.push((entity_id, pos_x, pos_y, game_obj, klass)); }
+        }
+        let ln_next = u64::from_le_bytes(gob[0x70..0x78].try_into().unwrap());
+        if ln_next == node { break; }
+        node = ln_next;
+    }
+    entities
+}
+
+pub fn start_enemy_scanner(pid: i32) {
+    std::thread::spawn(move || {
+        loop {
+            if *GOM_ADDR.lock().unwrap() == 0 {
+                if let Some(gom) = find_gom_address(pid) {
+                    *GOM_ADDR.lock().unwrap() = gom;
+                    println!("[SCAN] GOM found at 0x{:x}", gom);
+                } else {
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                    continue;
+                }
+            }
+            let gom = *GOM_ADDR.lock().unwrap();
+            if let Ok(mut e) = SCANNED_ENEMIES.lock() {
+                *e = walk_gom_entities(pid, gom);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(16));
+        }
+    });
+}
 
 #[derive(Debug, Clone)]
 pub struct CollisionGrid {
@@ -179,6 +296,12 @@ pub fn find_albion_pid() -> Option<i32> {
                             let name = comm.trim();
                             if name.contains("Albion") || name.contains("Client") {
                                 if let Ok(pid) = pid_str.parse::<i32>() {
+                                    if let Ok(status) = read_to_string(path.join("status")) {
+                                        if status.lines().any(|l| l.starts_with("State:") && l.contains("Z")) {
+                                            println!("[MEM] skip zombie PID={}", pid);
+                                            continue;
+                                        }
+                                    }
                                     return Some(pid);
                                 }
                             }
@@ -207,6 +330,69 @@ pub fn get_module_base_address(pid: i32, module_name: &str) -> Option<u64> {
         }
     }
     None
+}
+
+/// Ищет в куче managed-объекты с entity_id и позицией.
+/// Сканирует анонимные rw-p регионы на предмет сущностей Albion.
+pub fn scan_heap_entities(pid: i32) -> Vec<(i32, f32, f32)> {
+    let ranges = get_anonymous_rw_ranges(pid);
+    let mut entities = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
+
+    for range in &ranges {
+        let size = (range.end - range.start) as usize;
+        if size < 0x30 || size > 100 * 1024 * 1024 { continue; }
+        if range.start < 0x720000000000 { continue; }
+        if range.start > 0x730000000000 { continue; }
+
+        let max_read = size.min(10 * 1024 * 1024);
+        let mut addr = range.start;
+        while addr < range.start + max_read as u64 {
+            let remaining = (range.start + max_read as u64 - addr) as usize;
+            let chunk_size = remaining.min(1024 * 1024);
+            let mut buf = vec![0u8; chunk_size];
+            if !read_process_memory(pid, addr, &mut buf) {
+                addr += chunk_size as u64;
+                continue;
+            }
+
+            // Ищем паттерн: [vtable/klass в GameAssembly][monitor=0][entity_id][pos_x][pos_y]
+            for off in (0..chunk_size.saturating_sub(32)).step_by(4) {
+                let klass_or_vt = u64::from_le_bytes(buf[off..off+8].try_into().unwrap());
+                // klass/vtable должен быть в GameAssembly rw-p (0x72bc4040xxxx) или metadata (0x2d...)
+                let is_gameassembly_ptr = (0x72bc40400000..0x72bc40600000).contains(&klass_or_vt);
+                let is_metadata_ptr = (0x2d0000000000..0x300000000000).contains(&klass_or_vt);
+                if !is_gameassembly_ptr && !is_metadata_ptr { continue; }
+
+                let monitor = u64::from_le_bytes(buf[off+8..off+16].try_into().unwrap());
+                if monitor != 0 { continue; }
+
+                // Пробуем entity_id как i64 на смещении +0x10
+                let entity_id = i64::from_le_bytes(buf[off+16..off+24].try_into().unwrap()) as i32;
+                if entity_id < 100_000 || entity_id > 20_000_000 { continue; }
+                if seen_ids.contains(&entity_id) { continue; }
+
+                // Ищем позицию в диапазоне +0x18..+0x30 от объекта
+                for pos_off in [0x18usize, 0x20, 0x28] {
+                    if off + pos_off + 8 > chunk_size { continue; }
+                    let x = f32::from_le_bytes(buf[off+pos_off..off+pos_off+4].try_into().unwrap());
+                    let y = f32::from_le_bytes(buf[off+pos_off+4..off+pos_off+8].try_into().unwrap());
+                    if x.is_finite() && y.is_finite() && x.abs() < 50000.0 && y.abs() < 50000.0
+                        && (x.abs() > 0.1 || y.abs() > 0.1)
+                    {
+                        entities.push((entity_id, x, y));
+                        seen_ids.insert(entity_id);
+                        break;
+                    }
+                }
+                if entities.len() >= 200 { break; }
+            }
+            addr += chunk_size as u64;
+            if entities.len() >= 200 { break; }
+        }
+        if entities.len() >= 200 { break; }
+    }
+    entities
 }
 
 pub fn get_anonymous_rw_ranges(pid: i32) -> Vec<MemoryRange> {
@@ -428,20 +614,18 @@ pub fn find_entity_id_by_value(pid: i32, target_id: i32) {
 }
 
 fn dump_entity_context(pid: i32, abs_addr: u64, target_id: i32) {
-    // Читаем 64 байта: 16 до entity_id + 4 (id) + 44 после
-    let mut buf = vec![0u8; 64];
+    let mut buf = vec![0u8; 512];
     let read_addr = if abs_addr >= 16 { abs_addr - 16 } else { abs_addr };
     if !read_process_memory(pid, read_addr, &mut buf) {
-        println!("[MEM] ID {} по адресу 0x{:x} (не смог прочитать контекст)", target_id, abs_addr);
+        println!("[MEM] ID {} @ 0x{:x} (не смог прочитать контекст)", target_id, abs_addr);
         return;
     }
-    let off = (abs_addr - read_addr) as usize; // смещение entity_id в buf
-    let ctx_hex: Vec<String> = buf.iter().map(|b| format!("{:02x}", b)).collect();
-    print!("[MEM] ID {} @ 0x{:x} range=0x{:x}: {}", target_id, abs_addr, read_addr, ctx_hex.join(" "));
+    let off = (abs_addr - read_addr) as usize;
+    let ctx_hex: Vec<String> = buf.iter().take(256).map(|b| format!("{:02x}", b)).collect();
+    print!("[MEM] ID {} @ 0x{:x}: {}", target_id, abs_addr, ctx_hex.join(" "));
     let _ = stdout().flush();
 
-    // Пробуем интерпретировать байты после entity_id как f32 (x,y,z) на разных смещениях
-    for delta in [0, 4, 8, 12, 16, 20] {
+    for &delta in &[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60] {
         let start = off + 4 + delta;
         if start + 12 <= buf.len() {
             let x = f32::from_le_bytes(buf[start..start+4].try_into().unwrap());
@@ -449,118 +633,131 @@ fn dump_entity_context(pid: i32, abs_addr: u64, target_id: i32) {
             let z = f32::from_le_bytes(buf[start+8..start+12].try_into().unwrap());
             if x.is_finite() && y.is_finite() && z.is_finite()
                 && x.abs() > 0.1 && y.abs() > 0.1
-                && x.abs() < 10000.0 && y.abs() < 10000.0 && z.abs() < 10000.0
+                && x.abs() < 20000.0 && y.abs() < 20000.0 && z.abs() < 20000.0
             {
                 println!(" XYZ(delta={}) ({:.1},{:.1},{:.1})", delta, x, y, z);
                 return;
             }
         }
     }
-    println!();
+    // also check delta from id end (off+4) in wider steps
+    for &delta in &[64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144] {
+        let start = off + 4 + delta;
+        if start + 12 <= buf.len() {
+            let x = f32::from_le_bytes(buf[start..start+4].try_into().unwrap());
+            let y = f32::from_le_bytes(buf[start+4..start+8].try_into().unwrap());
+            let z = f32::from_le_bytes(buf[start+8..start+12].try_into().unwrap());
+            if x.is_finite() && y.is_finite() && z.is_finite()
+                && x.abs() > 0.1 && y.abs() > 0.1
+                && x.abs() < 20000.0 && y.abs() < 20000.0 && z.abs() < 20000.0
+            {
+                println!(" XYZ(delta={}) ({:.1},{:.1},{:.1})", delta, x, y, z);
+                return;
+            }
+        }
+    }
+    // search for known position 202.36, 49.9 as raw bytes
+    let target_x = 202.36f32; let target_y = 49.9f32;
+    let txb = target_x.to_le_bytes();
+    let tyb = target_y.to_le_bytes();
+    for i in 4..buf.len()-12 {
+        if buf[i..i+4] == txb && buf[i+4..i+8] == tyb {
+            let delta = i - (off + 4);
+            println!(" KNOWN_POS(delta={}) ({:.1},{:.1})", delta, target_x, target_y);
+            return;
+        }
+    }
+    println!(" (no pos found)");
 }
 
-pub fn find_player_entity_id(pid: i32) -> Option<(i32, f32, f32, f32, u64)> {
-    println!("[MEM] find_player_entity_id запущен...");
+pub fn find_candidate_positions(pid: i32) -> Vec<(f32, f32, f32, u64)> {
+    println!("[MEM] Поиск кандидатов (3 float, Mtest стиль)...");
     let mut candidates: Vec<(i32, f32, f32, f32, u64)> = Vec::new();
     scan_entity_candidates(pid, &mut candidates);
-    if candidates.is_empty() {
-        println!("[MEM] Кандидатов не найдено");
-        return None;
+    let result: Vec<(f32, f32, f32, u64)> = candidates.into_iter()
+        .map(|(_, x, y, z, addr)| (x, y, z, addr))
+        .collect();
+    if let Ok(mut s) = SCANNED_CANDIDATES.lock() {
+        *s = result.clone();
     }
-    use std::collections::HashMap;
-    let mut counts: HashMap<i32, usize> = HashMap::new();
-    for (id, _, _, _, _) in &candidates {
-        *counts.entry(*id).or_insert(0) += 1;
+    println!("[MEM] Найдено {} кандидатов (сохранено в SCANNED_CANDIDATES)", result.len());
+    for (i, (x, y, z, addr)) in result.iter().enumerate().take(5) {
+        println!("[MEM]   [{i}] ({x:.1}, {y:.1}, {z:.1}) @ 0x{addr:x}");
     }
-    let mut sorted: Vec<(i32, usize)> = counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(&a.1));
-    println!("[MEM] Найдено {} кандидатов. Топ по частоте:", candidates.len());
-    for (id, count) in sorted.iter().take(5) {
-        if let Some((_, x, y, z, addr)) = candidates.iter().find(|(i, _, _, _, _)| i == id) {
-            println!("[MEM]   ID={} count={} pos=({:.0},{:.0},{:.0}) @ 0x{:x}", id, count, x, y, z, addr);
-        }
-    }
-    if let Some((best_id, _count)) = sorted.first() {
-        if let Some((_, x, y, z, addr)) = candidates.iter().find(|(i, _, _, _, _)| i == best_id) {
-            return Some((*best_id, *x, *y, *z, *addr));
-        }
-    }
-    None
+    result
+}
+
+pub fn filter_nearby_positions(mx: f32, my: f32, radius: f32) -> Vec<(i32, f32, f32)> {
+    let candidates = SCANNED_CANDIDATES.lock().unwrap_or_else(|e| e.into_inner());
+    let result: Vec<(i32, f32, f32)> = candidates.iter()
+        .filter(|(x, y, _, _)| {
+            let dx = x - mx;
+            let dy = y - my;
+            dx * dx + dy * dy <= radius * radius
+        })
+        .map(|(x, y, _, addr)| {
+            let id = (addr & 0x7FFFFFFF) as i32;
+            (id, *x, *y)
+        })
+        .collect();
+    println!("[MEM] filter_nearby_positions: {} из {} кандидатов в радиусе {:.0} от ({:.1},{:.1})",
+             result.len(), candidates.len(), radius, mx, my);
+    result
 }
 
 fn scan_entity_candidates(pid: i32, candidates: &mut Vec<(i32, f32, f32, f32, u64)>) {
-    let ranges = get_anonymous_rw_ranges(pid);
-    println!("[MEM] Сканирую {} rw-p регионов на entity_id (layout: [id][?][x][y][z])...", ranges.len());
+    let ranges = get_mtest_regions(pid);
+    println!("[MEM] Сканирую {} регионов (Mtest стиль: 3 float, шаг 8)...", ranges.len());
     let max_candidates = 500;
+    let mut buf = [0u8; 12];
+
     for range in &ranges {
         let size = (range.end - range.start) as usize;
-        if size < 1000 || size > 256 * 1024 * 1024 { continue; }
-        // Try scan with bigger chunks since process_vm_readv is slow
-        if size > 1024 * 1024 {
-            let mut addr = range.start;
-            while addr < range.end {
-                let remaining = (range.end - addr) as usize;
-                let chunk = std::cmp::min(remaining, 1024 * 1024);
-                let mut buf = vec![0u8; std::cmp::max(chunk, 20)];
-                if !read_process_memory(pid, addr, &mut buf) { addr += chunk as u64; continue; }
-                let max = buf.len().saturating_sub(20);
-                let mut i = 0;
-                while i < max {
-                    i += 4;
-                    let id = i32::from_le_bytes(buf[i..i+4].try_into().unwrap());
-                    if id <= 0 || id > 10000000 { continue; }
-                    // Try layouts: x at offset 4, 8, 12, or 16 from id
-                    for xoff in [4, 8, 12, 16] {
-                        if i + xoff + 12 > buf.len() { continue; }
-                        let x = f32::from_le_bytes(buf[i+xoff..i+xoff+4].try_into().unwrap());
-                        let y = f32::from_le_bytes(buf[i+xoff+4..i+xoff+8].try_into().unwrap());
-                        let z = f32::from_le_bytes(buf[i+xoff+8..i+xoff+12].try_into().unwrap());
-                        if x.is_finite() && y.is_finite() && z.is_finite()
-                            && x > -20000.0 && x < 20000.0
-                            && y > -20000.0 && y < 20000.0
-                            && z > -20000.0 && z < 20000.0
-                            && (x.abs() > 1.0 || y.abs() > 1.0)
-                            && !(x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1)
-                        {
-                            let abs_addr = addr + i as u64;
-                            candidates.push((id, x, y, z, abs_addr + xoff as u64 - 4));
-                            if candidates.len() >= max_candidates { return; }
-                            break; // found a good layout, skip others
-                        }
-                    }
-                }
+        if size > 4 * 1024 * 1024 { continue; }
+
+        for addr in (range.start..range.end.saturating_sub(12)).step_by(8) {
+            if !read_process_memory(pid, addr, &mut buf) { continue; }
+            let x = f32::from_le_bytes(buf[0..4].try_into().unwrap());
+            let y = f32::from_le_bytes(buf[4..8].try_into().unwrap());
+            let z = f32::from_le_bytes(buf[8..12].try_into().unwrap());
+            if x != 0.0 && y != 0.0
+                && x > -2000.0 && x < 2000.0
+                && y > -2000.0 && y < 2000.0
+            {
+                let id = 0;
+                candidates.push((id, x, y, z, addr));
                 if candidates.len() >= max_candidates { return; }
-                addr += (chunk as u64).saturating_sub(20);
             }
-        } else {
-            let mut buf = vec![0u8; size];
-            if !read_process_memory(pid, range.start, &mut buf) { continue; }
-            let max = buf.len().saturating_sub(20);
-            let mut i = 0;
-            while i < max {
-                i += 4;
-                let id = i32::from_le_bytes(buf[i..i+4].try_into().unwrap());
-                if id <= 0 || id > 10000000 { continue; }
-                for xoff in [4, 8, 12, 16] {
-                    if i + xoff + 12 > buf.len() { continue; }
-                    let x = f32::from_le_bytes(buf[i+xoff..i+xoff+4].try_into().unwrap());
-                    let y = f32::from_le_bytes(buf[i+xoff+4..i+xoff+8].try_into().unwrap());
-                    let z = f32::from_le_bytes(buf[i+xoff+8..i+xoff+12].try_into().unwrap());
-                    if x.is_finite() && y.is_finite() && z.is_finite()
-                        && x > -20000.0 && x < 20000.0
-                        && y > -20000.0 && y < 20000.0
-                        && z > -20000.0 && z < 20000.0
-                        && (x.abs() > 1.0 || y.abs() > 1.0)
-                        && !(x.abs() < 0.1 && y.abs() < 0.1 && z.abs() < 0.1)
-                    {
-                        candidates.push((id, x, y, z, range.start + i as u64 + xoff as u64 - 4));
-                        if candidates.len() >= max_candidates { return; }
-                        break;
-                    }
+        }
+    }
+}
+
+/// Регионы как в C# Mtest: rw-p, исключая .so и [brackets]
+fn get_mtest_regions(pid: i32) -> Vec<MemoryRange> {
+    let maps_path = format!("/proc/{}/maps", pid);
+    let file = match File::open(&maps_path) {
+        Ok(f) => f,
+        Err(_) => return Vec::new(),
+    };
+    let reader = BufReader::new(file);
+    let mut ranges = Vec::new();
+    for line in reader.lines().flatten() {
+        if !line.contains("rw-p") { continue; }
+        if line.contains(".so") { continue; }
+        if line.contains('[') { continue; }
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if let Some(range_str) = parts.get(0) {
+            if let Some((start_str, end_str)) = range_str.split_once('-') {
+                if let (Ok(start), Ok(end)) = (
+                    u64::from_str_radix(start_str, 16),
+                    u64::from_str_radix(end_str, 16),
+                ) {
+                    ranges.push(MemoryRange { start, end });
                 }
             }
         }
     }
+    ranges
 }
 
 pub fn scan_id_addrs(pid: i32, target_id: i32) -> Vec<u64> {
@@ -774,4 +971,205 @@ pub fn find_all_collision_grids(pid: i32) -> Vec<CollisionGrid> {
     }
 
     grids
+}
+/// Читает список сущностей через GOM linked list (как в walk_gom.py)
+pub fn read_entities_via_gom(pid: i32) -> Vec<(i32, f32, f32)> {
+    let mut entities = Vec::new();
+    let mut found_unity = false;
+    let mut unity_base = 0u64;
+
+    if let Ok(maps) = std::fs::read_to_string(format!("/proc/{}/maps", pid)) {
+        for line in maps.lines() {
+            if line.contains("UnityPlayer.so") && line.contains("r--p") && line.contains("00000000") {
+                if let Some(addr_str) = line.split('-').next() {
+                    if let Ok(base) = u64::from_str_radix(addr_str, 16) {
+                        unity_base = base;
+                        found_unity = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if !found_unity {
+        if let Some(base) = get_module_base_address(pid, "GameAssembly.so") {
+            unity_base = base;
+        } else {
+            return entities;
+        }
+    }
+
+    let mut gom_buf = [0u8; 8];
+    if !read_process_memory(pid, unity_base + 0x20EAAC0, &mut gom_buf) {
+        return entities;
+    }
+    let gom = u64::from_le_bytes(gom_buf);
+    if gom < 0x100000 {
+        return entities;
+    }
+
+    let mut sentinel_buf = [0u8; 16];
+    if !read_process_memory(pid, gom + 0x18, &mut sentinel_buf) {
+        return entities;
+    }
+    let sentinel_next = u64::from_le_bytes(sentinel_buf[8..16].try_into().unwrap());
+    if sentinel_next == gom + 0x18 {
+        return entities;
+    }
+
+    let mut node = sentinel_next;
+    let mut go_count = 0;
+    while node != gom + 0x18 && go_count < 500 && entities.len() < 200 {
+        go_count += 1;
+        let game_obj = node - 0x68;
+        let mut gob = [0u8; 0x80];
+        if !read_process_memory(pid, game_obj, &mut gob) {
+            break;
+        }
+
+        let klass = u64::from_le_bytes(gob[0x00..0x08].try_into().unwrap());
+        let transform_ptr = u64::from_le_bytes(gob[0x10..0x18].try_into().unwrap());
+        let name_ptr = u64::from_le_bytes(gob[0x28..0x30].try_into().unwrap());
+
+        let mut entity_id = 0i32;
+        let mut pos_x = 0.0f32;
+        let mut pos_y = 0.0f32;
+        let mut have_entity_id = false;
+        let mut have_pos = false;
+
+        if transform_ptr >= 0x700000000000 && transform_ptr <= 0x800000000000 {
+            let mut tb = [0u8; 0xA0];
+            if read_process_memory(pid, transform_ptr, &mut tb) {
+                for off in (0x38..0x98).step_by(4) {
+                    if off + 8 > tb.len() { break; }
+                    let x = f32::from_le_bytes(tb[off..off+4].try_into().unwrap());
+                    let y = f32::from_le_bytes(tb[off+4..off+8].try_into().unwrap());
+                    if x.is_finite() && y.is_finite() && x.abs() > 0.5 && x.abs() < 20000.0 && y.abs() > 0.5 && y.abs() < 20000.0 {
+                        pos_x = x;
+                        pos_y = y;
+                        have_pos = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        let comp_handle = u64::from_le_bytes(gob[0x18..0x20].try_into().unwrap());
+        if have_pos {
+            for scan_off in (0x20..0x70).step_by(4) {
+                if scan_off + 4 > gob.len() { break; }
+                let val = i32::from_le_bytes(gob[scan_off..scan_off+4].try_into().unwrap());
+                if val > 100_000 && val < 50_000_000 {
+                    entity_id = val;
+                    have_entity_id = true;
+                    break;
+                }
+            }
+        }
+
+        if !have_entity_id {
+            let mut scan_data = [0u8; 256];
+            let scan_addr = if game_obj > 128 { game_obj - 128 } else { 0 };
+            if scan_addr > 0 && read_process_memory(pid, scan_addr, &mut scan_data) {
+                let off = (game_obj - scan_addr) as usize;
+                for i in (0..=off).step_by(4) {
+                    if i + 4 > scan_data.len() { break; }
+                    let val = i32::from_le_bytes(scan_data[i..i+4].try_into().unwrap());
+                    if val > 100_000 && val < 50_000_000 {
+                        entity_id = val;
+                        have_entity_id = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if have_pos && have_entity_id {
+            entities.push((entity_id, pos_x, pos_y));
+        }
+
+        let ln_next = u64::from_le_bytes(gob[0x70..0x78].try_into().unwrap());
+        if ln_next == node { break; }
+        node = ln_next;
+    }
+
+    if entities.is_empty() {
+        entities = scan_heap_entities(pid);
+    }
+
+    entities
+}
+
+pub fn discover_coord_candidates(pid: i32) -> usize {
+    let ranges = get_anonymous_rw_ranges(pid);
+    let mut found = 0usize;
+    for range in &ranges {
+        let size = (range.end - range.start) as usize;
+        if size < 12 || size > 4 * 1024 * 1024 { continue; }
+        if range.start < 0x720000000000 { continue; }
+        if range.start > 0x730000000000 { continue; }
+        let max_read = size.min(1024 * 1024);
+        let mut buf = vec![0u8; max_read];
+        if !read_process_memory(pid, range.start, &mut buf) { continue; }
+        for i in (0..max_read.saturating_sub(12)).step_by(8) {
+            let x = f32::from_le_bytes(buf[i..i+4].try_into().unwrap());
+            let y = f32::from_le_bytes(buf[i+4..i+8].try_into().unwrap());
+            let z = f32::from_le_bytes(buf[i+8..i+12].try_into().unwrap());
+            if x != 0.0 && y != 0.0 && x > -2000.0 && x < 2000.0 && y > -2000.0 && y < 2000.0 {
+                let addr = range.start + i as u64;
+                if let Ok(mut t) = COORD_TRACKER.lock() {
+                    if !t.contains_key(&addr) {
+                        t.insert(addr, (x, y, false));
+                        found += 1;
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
+pub fn track_coord_enemies(pid: i32) -> Vec<(i32, f32, f32)> {
+    let addrs: Vec<u64> = if let Ok(t) = COORD_TRACKER.lock() {
+        t.keys().copied().collect()
+    } else { return Vec::new(); };
+
+    let mut updates = Vec::new();
+    for &addr in &addrs {
+        let mut buf = [0u8; 12];
+        if !read_process_memory(pid, addr, &mut buf) {
+            updates.push((addr, None));
+            continue;
+        }
+        let x = f32::from_le_bytes(buf[0..4].try_into().unwrap());
+        let y = f32::from_le_bytes(buf[4..8].try_into().unwrap());
+        if !x.is_finite() || !y.is_finite() || x == 0.0 || y == 0.0 {
+            updates.push((addr, None));
+            continue;
+        }
+        updates.push((addr, Some((x, y))));
+    }
+
+    let mut confirmed = Vec::new();
+    if let Ok(mut t) = COORD_TRACKER.lock() {
+        for (addr, opt) in updates {
+            match opt {
+                None => { t.remove(&addr); }
+                Some((x, y)) => {
+                    let entry = t.entry(addr).or_insert((x, y, false));
+                    let moved = (x - entry.0).abs() > 1.0 || (y - entry.1).abs() > 1.0;
+                    entry.0 = x;
+                    entry.1 = y;
+                    if moved { entry.2 = true; }
+                    if entry.2 {
+                        let id = -((addr & 0xFFFF) as i32);
+                        confirmed.push((id, x, y));
+                    }
+                }
+            }
+        }
+    }
+    if confirmed.len() > 200 { confirmed.truncate(200); }
+    confirmed
 }
