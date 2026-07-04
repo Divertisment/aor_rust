@@ -175,7 +175,11 @@ pub fn read_process_memory(pid: i32, addr: u64, buf: &mut [u8]) -> bool {
             1,
             0,
         );
-        ret as usize == buf.len()
+        if ret < 0 {
+            false
+        } else {
+            ret as usize == buf.len()
+        }
     }
 }
 
