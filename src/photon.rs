@@ -867,21 +867,17 @@ pub fn read_move_params(param_bytes: &[u8], ks_key: Option<[u8; 8]>) -> Option<(
     let params = read_parameter_table(param_bytes);
     let entity_id = extract_param_id(&params)?;
     // Новый формат: координаты как Float в param[4] и param[5]
-    if let (Some(PhotonValue::Float(xb)), Some(PhotonValue::Float(yb))) = (params.get(&4), params.get(&5)) {
-        let x = f32::from_bits(*xb);
-        let y = f32::from_bits(*yb);
+    if let (Some(PhotonValue::Float(x)), Some(PhotonValue::Float(y))) = (params.get(&4), params.get(&5)) {
         if x.is_finite() && y.is_finite() && x.abs() <= 50000.0 && y.abs() <= 50000.0 {
-            return Some((entity_id, x, y));
+            return Some((entity_id, *x, *y));
         }
     }
     // Новый формат: только X в param[4] (Y может быть в следующем пакете)
-    if let Some(PhotonValue::Float(xb)) = params.get(&4) {
-        let x = f32::from_bits(*xb);
+    if let Some(PhotonValue::Float(x)) = params.get(&4) {
         if x.is_finite() && x.abs() <= 50000.0 {
-            if let Some(PhotonValue::Float(yb)) = params.get(&5) {
-                let y = f32::from_bits(*yb);
+            if let Some(PhotonValue::Float(y)) = params.get(&5) {
                 if y.is_finite() && y.abs() <= 50000.0 {
-                    return Some((entity_id, x, y));
+                    return Some((entity_id, *x, *y));
                 }
             }
             // Y может быть в param[5] без Float тега — пробуем байты
@@ -889,8 +885,7 @@ pub fn read_move_params(param_bytes: &[u8], ks_key: Option<[u8; 8]>) -> Option<(
         }
     }
     // Новый формат: только Y в param[5]
-    if let Some(PhotonValue::Float(yb)) = params.get(&5) {
-        let y = f32::from_bits(*yb);
+    if let Some(PhotonValue::Float(y)) = params.get(&5) {
         if y.is_finite() && y.abs() <= 50000.0 {
             return None; // без X не используем
         }

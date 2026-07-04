@@ -118,51 +118,65 @@ pub fn start_relay_server(running: Arc<std::sync::atomic::AtomicBool>, game_pid:
                             let x = f32::from_le_bytes([coord_buf[0], coord_buf[1], coord_buf[2], coord_buf[3]]);
                             let y = f32::from_le_bytes([coord_buf[4], coord_buf[5], coord_buf[6], coord_buf[7]]);
                             let z = f32::from_le_bytes([coord_buf[8], coord_buf[9], coord_buf[10], coord_buf[11]]);
-                            if let Ok(mut pos) = LAST_POS.lock() { *pos = (x, y); }
-                            if let Ok(mut p) = MAIN_POS.lock() { *p = (x, y); }
+                            if let Ok(mut pos) = LAST_POS.lock() {
+                                *pos = (x, y);
+                            } else {
+                                eprintln!("LAST_POS mutex poisoned in start_relay_server read loop");
+                            }
+                            if let Ok(mut p) = MAIN_POS.lock() {
+                                *p = (x, y);
+                            } else {
+                                eprintln!("MAIN_POS mutex poisoned in start_relay_server read loop");
+                            }
                             println!("[REL] Получены координаты: ({:.2}, {:.2}, {:.2})", x, y, z);
                             crate::memory::find_float_coords(pid, x, y, z);
                             // Шлём type=5 (Custom) всем relay клиентам
                             let mut out5 = Vec::with_capacity(12);
                             out5.extend_from_slice(&[0, 0, 0, 0]); // src_ip
-                            out5.push(5); out5.push(0);            // type=5, code=0
+                            out5.push(5);
+                            out5.push(0); // type=5, code=0
                             out5.extend_from_slice(&12u16.to_le_bytes()); // len=12
-                            out5.extend_from_slice(&coord_buf);    // x,y,z
+                            out5.extend_from_slice(&coord_buf); // x,y,z
                             // Шлём позицию слейва если известна (type=5, code=1)
                             let slave_pkt = {
-                                let sid = *SLAVE_ID.lock().unwrap();
+                                let sid = *SLAVE_ID.lock().unwrap_or_else(|e| e.into_inner());
                                 if sid != 0 {
-                                    let (sx, sy) = *SLAVE_POS.lock().unwrap();
+                                    let (sx, sy) = *SLAVE_POS.lock().unwrap_or_else(|e| e.into_inner());
                                     if sx != 0.0 || sy != 0.0 {
                                         let mut p = Vec::with_capacity(16);
                                         p.extend_from_slice(&[0, 0, 0, 0]); // src_ip
-                                        p.push(5); p.push(1);                // type=5, code=1
+                                        p.push(5);
+                                        p.push(1); // type=5, code=1
                                         p.extend_from_slice(&12u16.to_le_bytes()); // len=12
                                         p.extend_from_slice(&sid.to_le_bytes());
                                         p.extend_from_slice(&sx.to_le_bytes());
                                         p.extend_from_slice(&sy.to_le_bytes());
                                         Some(p)
-                                    } else { None }
-                                } else { None }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
                             };
                             if let Ok(mut clients) = RELAY_CLIENTS.lock() {
                                 let mut i = 0;
                                 while i < clients.len() {
-                                    match clients[i].write(&out5) {
-                                        Ok(n) if n == out5.len() => i += 1,
-                                        Ok(_) => i += 1,
-                                        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => i += 1,
-                                        Err(_) => { clients.remove(i); }
+                                    match clients[i].write_all(&out5) { // Changed to write_all
+                                        Ok(()) => i += 1,
+                                        Err(_) => {
+                                            clients.remove(i);
+                                        }
                                     }
                                 }
                                 if let Some(ref sp) = slave_pkt {
                                     let mut i = 0;
                                     while i < clients.len() {
-                                        match clients[i].write(sp) {
-                                            Ok(n) if n == sp.len() => i += 1,
-                                            Ok(_) => i += 1,
-                                            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => i += 1,
-                                            Err(_) => { clients.remove(i); }
+                                        match clients[i].write_all(sp) { // Changed to write_all
+                                            Ok(()) => i += 1,
+                                            Err(_) => {
+                                                clients.remove(i);
+                                            }
                                         }
                                     }
                                 }
@@ -519,18 +533,25 @@ fn extract_photon_messages(raw: &[u8], debug: bool) -> Vec<(u8, u8, Vec<u8>)> {
 }
 
 pub fn broadcast_player_id() {
-    let id = *PLAYER_ENTITY_ID.lock().unwrap();
-    if id <= 0 { return; }
+    let id = *PLAYER_ENTITY_ID.lock().unwrap_or_else(|e| e.into_inner());
+    if id <= 0 {
+        return;
+    }
     let mut out = Vec::with_capacity(12);
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip = 0 (маркер системы)
     out.push(255); // type=255 = identity
-    out.push(0);   // code=0
-    out.extend_from_slice(&4u16.to_le_bytes()); // len=4
-    out.extend_from_slice(&id.to_le_bytes());   // id
-    use std::io::Write;
+    out.push(0); // code=0
+    out.extend_from_slice(&4u16::to_le_bytes()); // len=4
+    out.extend_from_slice(&id.to_le_bytes()); // id
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
-        for client in clients.iter_mut() {
-            let _ = client.write_all(&out);
+        let mut i = 0;
+        while i < clients.len() {
+            match clients[i].write_all(&out) {
+                Ok(()) => i += 1,
+                Err(_) => {
+                    clients.remove(i);
+                }
+            }
         }
     }
     println!("[PLAYER] ID {} разослан клиентам", id);
@@ -541,12 +562,17 @@ pub fn request_player_id() {
     let mut out = Vec::with_capacity(8);
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip = 0
     out.push(254); // type=254 = request_id
-    out.push(0);   // code=0
-    out.extend_from_slice(&0u16.to_le_bytes()); // len=0
-    use std::io::Write;
+    out.push(0); // code=0
+    out.extend_from_slice(&0u16::to_le_bytes()); // len=0
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
-        for client in clients.iter_mut() {
-            let _ = client.write_all(&out);
+        let mut i = 0;
+        while i < clients.len() {
+            match clients[i].write_all(&out) {
+                Ok(()) => i += 1,
+                Err(_) => {
+                    clients.remove(i);
+                }
+            }
         }
     }
     println!("[PLAYER] Запрос ID отправлен клиентам");
@@ -554,43 +580,63 @@ pub fn request_player_id() {
 
 /// Шлёт relay-клиентам позицию мейна (type=5, code=0).
 pub fn broadcast_main_position() {
-    let eid = *PLAYER_ENTITY_ID.lock().unwrap();
-    if eid <= 0 { return; }
+    let eid = *PLAYER_ENTITY_ID.lock().unwrap_or_else(|e| e.into_inner());
+    if eid <= 0 {
+        return;
+    }
     let (mx, my) = {
-        let p = *MAIN_POS.lock().unwrap();
-        if p == (0.0, 0.0) { *LAST_POS.lock().unwrap() } else { p }
+        let main_pos_guard = MAIN_POS.lock().unwrap_or_else(|e| e.into_inner());
+        if *main_pos_guard == (0.0, 0.0) {
+            *LAST_POS.lock().unwrap_or_else(|e| e.into_inner())
+        } else {
+            *main_pos_guard
+        }
     };
     let mut out = Vec::with_capacity(16);
     out.extend_from_slice(&[0, 0, 0, 0]);
-    out.push(5); out.push(0);
-    out.extend_from_slice(&12u16.to_le_bytes());
+    out.push(5);
+    out.push(0);
+    out.extend_from_slice(&12u16::to_le_bytes());
     out.extend_from_slice(&mx.to_le_bytes());
     out.extend_from_slice(&my.to_le_bytes());
-    out.extend_from_slice(&0f32.to_le_bytes()); // z=0
-    use std::io::Write;
+    out.extend_from_slice(&0f32::to_le_bytes()); // z=0
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
-        for client in clients.iter_mut() {
-            let _ = client.write_all(&out);
+        let mut i = 0;
+        while i < clients.len() {
+            match clients[i].write_all(&out) {
+                Ok(()) => i += 1,
+                Err(_) => {
+                    clients.remove(i);
+                }
+            }
         }
     }
 }
 
 /// Шлёт relay-клиентам позицию слейва (type=5, code=1).
 pub fn broadcast_slave_position() {
-    let sid = *SLAVE_ID.lock().unwrap();
-    if sid <= 0 { return; }
-    let (sx, sy) = *SLAVE_POS.lock().unwrap();
+    let sid = *SLAVE_ID.lock().unwrap_or_else(|e| e.into_inner());
+    if sid <= 0 {
+        return;
+    }
+    let (sx, sy) = *SLAVE_POS.lock().unwrap_or_else(|e| e.into_inner());
     let mut out = Vec::with_capacity(16);
     out.extend_from_slice(&[0, 0, 0, 0]); // src_ip
-    out.push(5); out.push(1);              // type=5, code=1
-    out.extend_from_slice(&12u16.to_le_bytes()); // len=12
+    out.push(5);
+    out.push(1); // type=5, code=1
+    out.extend_from_slice(&12u16::to_le_bytes()); // len=12
     out.extend_from_slice(&sid.to_le_bytes());
     out.extend_from_slice(&sx.to_le_bytes());
     out.extend_from_slice(&sy.to_le_bytes());
-    use std::io::Write;
     if let Ok(mut clients) = RELAY_CLIENTS.lock() {
-        for client in clients.iter_mut() {
-            let _ = client.write_all(&out);
+        let mut i = 0;
+        while i < clients.len() {
+            match clients[i].write_all(&out) {
+                Ok(()) => i += 1,
+                Err(_) => {
+                    clients.remove(i);
+                }
+            }
         }
     }
 }
