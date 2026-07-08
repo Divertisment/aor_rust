@@ -3,14 +3,40 @@ using System.Text;
 
 namespace AorScanner;
 
-public static class MemoryReader
+/// <summary>
+/// Memory reader for the AOR kernel driver (<c>/proc/aor_mem</c>) and
+/// <c>process_vm_readv</c> fallback. Anti-cheat stealth: the driver
+/// path mirrors <c>/proc/&lt;pid&gt;/mem</c>'s <c>__access_remote_vm</c>
+/// signature exactly (FOLL_FORCE | FOLL_GET) so its presence is
+/// indistinguishable from a normal proc read.
+/// </summary>
+public static unsafe class MemoryReader
 {
-    const string KmodPath = "/proc/aor_mem";
+    /// <summary>Path to the kernel driver proc file. Default: <c>/proc/aor_mem</c>.</summary>
+    public static string DriverPath { get; set; } = "/proc/aor_mem";
+
+    /// <summary>When true and <see cref="DriverPath"/> exists, use the driver.
+    /// Falls back to <c>process_vm_readv</c> otherwise or on driver error.</summary>
+    public static bool UseDriver { get; set; } = true;
 
     /// <summary>Pluggable reader — default delegates to the static methods below.
     /// Tests can assign a mock to inject canned byte arrays without touching a real pid.
     /// </summary>
     public static IMemoryReader Current { get; set; } = new DefaultMemoryReader();
+
+    /// <summary>Configure the memory reader from user config. Call once at startup
+    /// (Program.cs Main does this after <see cref="Config.Load"/>).</summary>
+    public static void Configure(string driverPath, bool useDriver)
+    {
+        DriverPath = driverPath;
+        UseDriver = useDriver;
+    }
+
+    /// <summary>Human-readable name of the active reader, for startup logging.</summary>
+    public static string ActiveReader =>
+        UseDriver && File.Exists(DriverPath)
+            ? $"driver ({DriverPath})"
+            : "process_vm_readv (fallback)";
 
     private sealed class DefaultMemoryReader : IMemoryReader
     {
@@ -19,56 +45,62 @@ public static class MemoryReader
         public List<(ulong Start, ulong End)> GetAnonymousRwRanges(int pid) => MemoryReader.GetAnonymousRwRanges(pid);
     }
 
-    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    static unsafe extern int open(byte* path, int flags, int mode);
+    [DllImport("libc", SetLastError = true)]
+    static extern unsafe nint process_vm_readv(
+        int pid,
+        IOVec* local_iov,
+        ulong local_iov_count,
+        IOVec* remote_iov,
+        ulong remote_iov_count,
+        ulong flags);
 
-    [DllImport("libc", EntryPoint = "write", SetLastError = true)]
-    static unsafe extern nint write(int fd, byte* buf, int count);
-
-    [DllImport("libc", EntryPoint = "read", SetLastError = true)]
-    static unsafe extern nint read(int fd, byte* buf, int count);
-
-    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
-    static extern int close(int fd);
-
-    const int O_WRONLY = 1;
-    const int O_RDONLY = 0;
-
-    static readonly byte[] _kmodPathNul = Encoding.ASCII.GetBytes("/proc/aor_mem\0");
-
-    public static unsafe bool Read(int pid, ulong addr, Span<byte> buf)
+    public static bool Read(int pid, ulong addr, Span<byte> buf)
     {
         if (buf.Length == 0) return true;
-        if (!File.Exists(KmodPath))
-            return ReadViaProcessVm(pid, addr, buf);
+        if (UseDriver && File.Exists(DriverPath))
+        {
+            try
+            {
+                return ReadViaDriver(pid, addr, buf);
+            }
+            catch (IOException)
+            {
+                // Driver open failed (EACCES, ENOENT mid-flight, etc.) — fall through to fallback.
+            }
+        }
+        return ReadViaProcessVm(pid, addr, buf);
+    }
 
+    /// <summary>
+    /// /proc/aor_mem-backed read. Two open() calls (O_WRONLY then O_RDONLY)
+    /// implementing the documented bash idiom:
+    ///   write "pid addr len\n" → driver arms global_req
+    ///   read                   → driver consumes global_req, returns bytes
+    ///
+    /// Returns true on any successful read (Unix partial-read semantics).
+    /// A 0-byte return = driver returned 0 = request not satisfied.
+    /// </summary>
+    static bool ReadViaDriver(int pid, ulong addr, Span<byte> buf)
+    {
         var reqStr = $"{pid} {addr:x} {buf.Length}\n";
         var reqBytes = Encoding.ASCII.GetBytes(reqStr);
 
-        fixed (byte* pPath = _kmodPathNul)
-        fixed (byte* pReq = reqBytes)
+        // Arm the request: open for write, send "pid addr len\n", close.
+        using (var wfs = new FileStream(DriverPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
         {
-            var wfd = open(pPath, O_WRONLY, 0);
-            if (wfd < 0) return ReadViaProcessVm(pid, addr, buf);
-            write(wfd, pReq, reqBytes.Length);
-            close(wfd);
-
-            var rfd = open(pPath, O_RDONLY, 0);
-            if (rfd < 0) return ReadViaProcessVm(pid, addr, buf);
-
-            int total = 0;
-            fixed (byte* pDst = buf)
-            {
-                while (total < buf.Length)
-                {
-                    var n = read(rfd, pDst + total, buf.Length - total);
-                    if (n <= 0) break;
-                    total += (int)n;
-                }
-            }
-            close(rfd);
-            return total == buf.Length;
+            wfs.Write(reqBytes, 0, reqBytes.Length);
         }
+
+        // Consume the request: open for read, drain bytes.
+        using var rfs = new FileStream(DriverPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        int total = 0;
+        while (total < buf.Length)
+        {
+            int n = rfs.Read(buf.Slice(total));
+            if (n <= 0) break;
+            total += n;
+        }
+        return total > 0;
     }
 
     static unsafe bool ReadViaProcessVm(int pid, ulong addr, Span<byte> buf)
@@ -217,13 +249,4 @@ public static class MemoryReader
         public IntPtr iov_base;
         public UIntPtr iov_len;
     }
-
-    [DllImport("libc", SetLastError = true)]
-    static extern unsafe nint process_vm_readv(
-        int pid,
-        IOVec* local_iov,
-        ulong local_iov_count,
-        IOVec* remote_iov,
-        ulong remote_iov_count,
-        ulong flags);
 }

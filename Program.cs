@@ -24,6 +24,10 @@ class Program
 
         Console.WriteLine($"[CFG] Process: {_cfg.Game.ProcessName}");
         Console.WriteLine($"[CFG] Poll interval: {_cfg.Game.PollIntervalSecs}s");
+
+        // Configure kernel driver path. Active reader is logged after Configure().
+        MemoryReader.Configure(_cfg.Kernel.DriverPath, _cfg.Kernel.UseDriver);
+        Console.WriteLine($"[CFG] Memory reader: {MemoryReader.ActiveReader}");
         Console.WriteLine();
 
         if (_playerId == 0)

@@ -24,7 +24,15 @@ public class Config
 
     public class KernelConfig
     {
+        /// <summary>Path to the aor_mem.ko module on disk. Informational only;
+        /// the C# code talks to the loaded module via <see cref="DriverPath"/>.</summary>
         public string ModulePath { get; set; } = "/home/stas/AOR_core/aor_mem.ko";
+
+        /// <summary>When true, prefer the /proc/aor_mem driver over process_vm_readv.</summary>
+        public bool UseDriver { get; set; } = true;
+
+        /// <summary>Path to the driver proc file. Default: <c>/proc/aor_mem</c>.</summary>
+        public string DriverPath { get; set; } = "/proc/aor_mem";
     }
 
     public class ScannerConfig
@@ -75,6 +83,8 @@ public class Config
                             break;
                         case "kernel":
                             if (key == "module_path") cfg.Kernel.ModulePath = val;
+                            if (key == "use_driver" && bool.TryParse(val, out var kud)) cfg.Kernel.UseDriver = kud;
+                            if (key == "driver_path") cfg.Kernel.DriverPath = val;
                             break;
                         case "scanner":
                             if (key == "max_entities" && int.TryParse(val, out var me)) cfg.Scanner.MaxEntities = me;
@@ -96,6 +106,8 @@ public class Config
         if (EnvInt("AOR_SYNC_PORT") is { } esy) cfg.Server.SyncPort = esy;
         if (EnvInt("AOR_GAME_UDP_PORT") is { } egp) cfg.Server.GameUdpPort = egp;
         if (Env("AOR_KMOD_PATH") is { } ekp) cfg.Kernel.ModulePath = ekp;
+        if (Env("AOR_USE_DRIVER") is { } eud && bool.TryParse(eud, out var eudv)) cfg.Kernel.UseDriver = eudv;
+        if (Env("AOR_DRIVER_PATH") is { } edp) cfg.Kernel.DriverPath = edp;
         if (EnvInt("AOR_MAX_ENTITIES") is { } eme) cfg.Scanner.MaxEntities = eme;
         if (Env("AOR_DEBUG") is { }) cfg.Scanner.Debug = true;
 
