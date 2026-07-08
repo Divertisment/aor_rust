@@ -1,0 +1,1981 @@
+     ____
+    / _  |   Frida 17.11.0 - A world-class dynamic instrumentation toolkit
+   | (_| |
+    > _  |   Commands:
+   /_/ |_|       help      -> Displays the help system
+   . . . .       object?   -> Display information about 'object'
+   . . . .       exit/quit -> Exit
+   . . . .
+   . . . .   More info at https://frida.re/docs/home/
+   . . . .
+   . . . .   Connected to Local System (id=local)
+Attaching...
+[*] === diagnostic: Assembly-CSharp scan ===
+[+] signature match (id@0x10 + X@0x38 + Y@0x3c, all Single): 0
+
+[+] name match (Player/Character/Hero/Local): 136
+  - LocalActorFake
+  - UILocalize
+  - KillPlayer
+  - KillPlayerFame
+  - Silver
+  - ChangeCharacter
+  - DisplayCharacterNameWorldObjectAnchoredGui
+  - LocalCameraChanger
+  - LocalCameraChangeTrigger
+  - SilverCoins
+  - SilverSpawnNode
+  - CharacterSelection3dRoot
+  - CharacterInstanceData
+  - CharacterMeshBuilder2
+  - AlbionUILocalize
+  - AlbionUILocalizeAppend
+  - AlbionUiLocalizeExtended
+  - LinkedCharacterNameLabel
+  - CharacterDetailsEntry
+  - CharacterDetailsGui
+  - CharacterEquipmentView
+  - CharacterInfoGui
+  - ArenaPlayerStatusEntry
+  - CrystalLeaguePlayerStatusGui
+  - FriendListLocalPlayerEntry
+  - MutedPlayersEntry
+  - MutedPlayersView
+  - GoldSilverToggleButton
+  - GvgPlayerEntry
+  - GvG_StatsPlayerEntry
+  - MatchPlayerStats
+  - HeroFrameType
+  - HeroFrame
+  - HeroFramesHudGui
+  - HeroStatsContextMenuButton
+  - HeroStatsContextMenuGui
+  - HeroStatsGui
+  - CharacterName
+  - CharacterNameSettingContext
+  - CharacterNameSettings
+  - CharacterNameSettingType
+  - CharacterNameVariant
+  - ClassicCharacterNameSettings
+  - ModernCharacterNameSettings
+  - SilverSlot
+  - LoadoutCharacterDetailsView
+  - DisableOtherOnDisableThis
+  - DisableOtherOnEnableThis
+  - PlayerBuildingHireLaborerView
+  - PlayerBuildingInfoView
+  - CharacterStatRow
+  - CharacterStatsGui
+  - UISilverTradeSlot
+  - VanityCharacterCustomizationView
+  - AlbionGui.CharacterCustomization.CharacterCustomizeViewBase
+  - CharacterEntry
+  - CharacterEntryBase
+  - CharacterCreateCustomizeView
+  - CharacterCustomizeWrapper
+  - CharacterSelectionDialog
+  - ConfirmDeleteCharacterView
+  - CreateCharacterDialog
+  - CharacterCreationCustomizeViewBase
+  - MobileCharacterCreationButton
+  - LoginCharacterToGameDialog
+  - PlayerFeedbackGui
+  - CharacterCustomizationPreviewMeshProvider
+  - CharacterCameraAnimation
+  - LocalInputHandler
+  - LocalPlayerCharacterView
+  - PlayerCharacterView
+  - RemotePlayerCharacterView
+  - PlayerBuildingView
+  - SilverObjectView
+  - SubtitlePlayerUI
+  - LoginPlayerCharAnimStateProvider
+  - PlayerCharAnimStateProvider
+  - AlbionGui.LocalQuests.LocalQuestMapLabel
+  - AlbionClient.Platform.SourcePlayerInfo
+  - AdvancedInputFieldPlugin.CharacterCondition
+  - AdvancedInputFieldPlugin.CharacterRule
+  - AdvancedInputFieldPlugin.CharacterValidator
+  - CharacterCustomization.SubCategory.CustomizationSubCategory
+  - CharacterCustomization.SubCategory.CharacterCustomizeSubCategoryView
+  - CharacterCustomization.SubCategory.ColorCharacterCustomizeSubCategoryView
+  - CharacterCustomization.SubCategory.MeshCharacterCustomizeSubCategoryView
+  - WorldMap.WorldMapLayers
+  - AlbionGui.PartyFinder.PartyFinderPlayerEntry
+  - AlbionGui.PartyAnswerInvitation.PartyInvitationPlayerEntry
+  - AlbionGui.TransferSilver.TransferSilverGui
+  - AlbionGui.LocalQuests.LocalQuestHudTaskEntry
+  - AlbionGui.LocalQuests.LocalQuestTooltip
+  - AlbionGui.LocalQuests.LocalQuestTrackerHudGui
+  - AlbionGui.GvgSeason.GuildPlayerStatsChallengeGui
+  - AlbionGui.GuildLogs.GuildPlayerRoleStatsListEntry
+  - AlbionGui.GuildManagement.GuildPlayerStatsListEntry
+  - AlbionGui.Friend.LocalPlayersView
+  - AlbionGui.CharacterInspect.CharacterAbilitiesFlyout
+  - AlbionGui.CharacterInspect.CharacterInspectFlyout`1
+  - AlbionGui.CharacterInspect.CharacterEquipmentTab
+  - AlbionGui.CharacterInspect.CharacterInspectTab`1
+  - AlbionGui.CharacterInspect.CharacterInspectGui
+  - AlbionGui.CharacterInspect.CharacterVanityAbilitiesFlyout
+  - AlbionGui.CharacterInspect.CharacterVanityTab
+  - AlbionGui.CharacterInspect.ItemAbilitiesView
+  - AlbionGui.CharacterInspect.VanityItemAbilitiesView
+  - AlbionGui.CharacterInspect.VanitySlot.CharacterInspectMountSkinSlot
+  - AlbionGui.CharacterInspect.VanitySlot.CharacterInspectVanitySkinSlot`1
+  - AlbionGui.CharacterInspect.VanitySlot.CharacterInspectWardrobeSlot
+  - AlbionGui.CharacterGui.CharacterInfoGuiTabBase
+  - AlbionGui.CharacterGui.GamepadActionListEntry
+  - AlbionGui.CharacterGui.GamepadActionsGui
+  - AlbionGui.CharacterGui.HeaderView
+  - AlbionGui.CharacterGui.InventoryFooter
+  - AlbionGui.CharacterGui.InventoryOptionsFlyout
+  - AlbionGui.CharacterGui.InventorySortingDropdown
+  - AlbionGui.CharacterGui.InventoryTabView
+  - AlbionGui.CharacterGui.SpellSelectionGamepadView
+  - AlbionGui.CharacterGui.SpellsTabView
+  - AlbionGui.CharacterGui.SpellTabEntry
+  - AlbionGui.CharacterGui.StatsTabView
+  - AlbionGui.CharacterGui.SwitchableSpellSlotEntry
+  - AlbionGui.CharacterCustomization.Category.AccessoriesCharacterCustomizeCategoryView
+  - AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView
+  - AlbionGui.CharacterCustomization.Category.BodyCharacterCustomizeCategoryView
+  - AlbionGui.CharacterCustomization.Category.HairCharacterCustomizeCategoryView
+  - AlbionGui.CharacterCustomization.Button.CharacterCustomizeButton`1
+  - AlbionGui.CharacterCustomization.Button.ColorCharacterCustomizeButton
+  - AlbionGui.CharacterCustomization.Button.MeshCharacterCustomizeButton
+  - Assets.Scripts.GUI.Game.OtherGui.PaySilverDetailGui
+  - Assets.Scripts.GUI.Game.OtherGui.PaySilverGoldGui
+  - Assets.Scripts.SimulationObjectViews.SimulationObjects.WorldObjects.MovingObjects.PlayerCharacter.VisualRepresentation.PlayerDummyAnimationSource
+  - Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneEnvironments
+  - Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneSwitcher
+  - Assets.Scripts.GameObjects.Misc.LocalQuestArea
+  - Assets.Scripts.Global.AlbionSequence.AlbionSequencePlayer
+
+  -- LocalActorFake --
+    0x0000  LocalActorFake   "Instance"
+    0x0018  ActorCameraController  "a"
+    0x0020  System.Single    "fMovementSpeed"
+    0x0024  System.Boolean   "SmoothMovement"
+    0x0025  System.Boolean   "HasCollision"
+    0x0026  System.Boolean   "RotateOnPlaneOnly"
+    0x0028  UnityEngine.Vector3  "vMoveTarget"
+    0x0038  a7h              "pCollisionGrid"
+    0x0040  a7n<a76>         "pTileInstanceHash"
+    0x0048  AnimPreviewer    "pAnimPrev"
+    0x0050  UnityEngine.Light  "FocusLight"
+    0x0058  UnityEngine.Camera  "b"
+    0x0060  System.Single    "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+
+  -- UILocalize --
+    0x0018  System.String    "key"
+    0x0020  System.Boolean   "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- KillPlayer --
+    0x0028  System.Boolean   "Assist"
+    0x0030  System.String    "Where"
+    0x0038  System.String    "Cluster"
+    0x0040  System.Int32     "MinValue"
+    0x0044  System.Int32     "Minutes"
+    0x0024  System.Int32     "Value"
+    0x0000  System.String    "XmlTag"
+    0x0000  System.String    "XmlGroupTag"
+    0x0018  System.String    "MissionType"
+    0x0020  b8a.MissionType  "<Type>k__BackingField"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- KillPlayerFame --
+    0x0028  System.String    "Where"
+    0x0024  System.Int32     "Value"
+    0x0000  System.String    "XmlTag"
+    0x0000  System.String    "XmlGroupTag"
+    0x0018  System.String    "MissionType"
+    0x0020  b8a.MissionType  "<Type>k__BackingField"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- Silver --
+    0x0024  System.Int32     "Amount"
+    0x0000  System.String    "XmlTag"
+    0x0018  System.String    "RewardType"
+    0x0020  b48.RewardType   "eType"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- ChangeCharacter --
+    0x0000  System.String    "EmptyMarker"
+    0x0018  UnityEngine.Transform  "ParentForCharacter"
+    0x0020  System.Boolean   "bLegacyPrefab"
+    0x0028  System.String    "AnimationToPlay"
+    0x0030  System.String    "CharType"
+    0x0038  System.String    "Head"
+    0x0040  System.String    "Armor"
+    0x0048  System.String    "Cape"
+    0x0050  System.String    "Shoes"
+    0x0058  System.String    "OffHand"
+    0x0060  System.String    "MainHand"
+    0x0068  System.Int32     "Head_EnchantmentLevel"
+    0x006c  System.Int32     "Armor_EnchantmentLevel"
+    0x0070  System.Int32     "Cape_EnchantmentLevel"
+    0x0074  System.Int32     "Shoes_EnchantmentLevel"
+    0x0078  System.Int32     "OffHand_EnchantmentLevel"
+
+  -- DisplayCharacterNameWorldObjectAnchoredGui --
+    0x0028  WorldObjectView  "a"
+    0x0030  cck              "b"
+    0x0038  cck              "c"
+    0x0040  cck              "d"
+    0x0048  System.Boolean   "e"
+    0x0018  System.String    "PrefabToUse"
+    0x0020  WorldObjectAnchoredGui  "AnchoredGui"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- LocalCameraChanger --
+    0x0018  ActorCameraController.State  "State"
+    0x0050  ActorCameraController.Transition  "Transition"
+    0x0060  System.Int32     "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- LocalCameraChangeTrigger --
+    0x0018  LocalCameraChanger  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- SilverCoins --
+    0x0018  UnityEngine.GameObject  "CanPickupState"
+    0x0020  UnityEngine.GameObject  "ProtectedState"
+    0x0028  System.String    "SoundInfoName"
+    0x0030  System.String    "SocketInfoName"
+    0x0038  System.String    "VfxPresetName"
+    0x0040  System.Boolean   "a"
+    0x0048  UnityEngine.Collider[]  "b"
+    0x0050  System.Boolean   "c"
+    0x0054  SilverCoins.a    "d"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- SilverSpawnNode --
+    0x0018  System.String    "ResourceType"
+    0x0020  System.Int32     "Tier"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterSelection3dRoot --
+    0x0018  UnityEngine.GameObject  "CharacterParent"
+    0x0020  UnityEngine.GameObject  "GuildBanner"
+    0x0028  UnityEngine.GameObject  "CameraHook"
+    0x0030  CameraAnimation  "CameraAnimation"
+    0x0038  UnityEngine.Transform  "CameraHookMobile"
+    0x0040  Atmosphere       "Atmosphere"
+    0x0048  UnityEngine.GameObject[]  "ObjectsToDisableOnLowSetting"
+    0x0050  System.Boolean   "IsShipView"
+    0x0051  System.Boolean   "a"
+    0x0058  System.String    "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterInstanceData --
+    0x0018  UnityEngine.MaterialPropertyBlock  "a"
+    0x0020  UnityEngine.Texture  "b"
+    0x0028  System.String    "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterMeshBuilder2 --
+    0x0000  System.Int32     "MaxCachedCharacterCount"
+    0x0004  System.Int32     "MaxCachedCharacterLogoCount"
+    0x0008  System.Collections.Generic.List<System.Int32>  "a"
+    0x0010  CharacterMeshBuilder2  "Instance"
+    0x0018  System.Boolean   "Prepared"
+    0x0000  System.String    "b"
+    0x0000  System.String    "EquipmentResourceFolder"
+    0x0000  System.String    "c"
+    0x0000  System.String    "d"
+    0x0000  System.String    "e"
+    0x0000  System.String    "CustomizationFolderName"
+    0x0000  System.String    "f"
+    0x0000  System.String    "g"
+    0x0000  System.String    "h"
+    0x0000  System.String    "i"
+    0x0000  System.String    "j"
+
+  -- AlbionUILocalize --
+    0x0018  System.String    "key"
+    0x0020  System.Boolean   "HandleUiParameters"
+    0x0021  System.Boolean   "ParseSymbols"
+    0x0022  System.Boolean   "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionUILocalizeAppend --
+    0x0018  System.String    "key"
+    0x0020  System.String    "append"
+    0x0028  System.Boolean   "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionUiLocalizeExtended --
+    0x0028  System.String    "StartWith"
+    0x0030  System.String    "Append"
+    0x0038  System.String[]  "Parameters"
+    0x0018  System.String    "key"
+    0x0020  System.Boolean   "HandleUiParameters"
+    0x0021  System.Boolean   "ParseSymbols"
+    0x0022  System.Boolean   "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- LinkedCharacterNameLabel --
+    0x0018  UnityEngine.Color  "a"
+    0x0028  UnityEngine.Color  "b"
+    0x0038  LinkedCharacterNameLabel.a  "HoverColor"
+    0x003c  UnityEngine.Color  "CustomHoverColor"
+    0x004c  System.Int32     "HoverPadding"
+    0x0050  UISlicedMirrorSprite  "BackgroundSprite"
+    0x0058  UIButtonColor    "BackgroundFade"
+    0x0060  UIButtonColor    "TextFade"
+    0x0068  System.String    "<Prefix>k__BackingField"
+    0x0070  UILabel          "Label"
+    0x0078  UnityEngine.BoxCollider  "Collider"
+    0x0080  UIKeyNavigation  "Navigation"
+    0x0088  System.Boolean   "Clickable"
+    0x0090  System.String    "c"
+    0x0098  System.String    "d"
+    0x00a0  System.String    "e"
+
+  -- CharacterDetailsEntry --
+    0x0018  UILabel          "TitleLabel"
+    0x0020  UILabel          "ValueLabel"
+    0x0028  UIKeyNavigation  "KeyNavigation"
+    0x0030  UnityEngine.GameObject  "PaperStrip"
+    0x0038  TweenScale       "ValueScaleTween"
+    0x0040  TweenColor       "ValueColorTween"
+    0x0048  UnityEngine.Vector3  "StartScale"
+    0x0054  UnityEngine.Color  "StartColor"
+    0x0064  UnityEngine.Color  "PositiveChangeColor"
+    0x0074  UnityEngine.Color  "NegativeChangeColor"
+    0x0084  System.Single    "a"
+    0x0088  System.Boolean   "b"
+    0x008c  System.Single    "c"
+    0x0090  clh              "d"
+    0x0098  System.Boolean   "e"
+    0x009c  dqd.GuiAttribute  "f"
+
+  -- CharacterDetailsGui --
+    0x0000  System.String    "c"
+    0x0000  System.String    "d"
+    0x0028  UISprite         "DetailsButtonIcon"
+    0x0030  UISprite         "DetailsButtonIconShadow"
+    0x0038  UnityEngine.GameObject  "DetailsContent"
+    0x0040  UIObjectListBuilder  "AttributeListBuilder"
+    0x0048  UIScrollView     "DraggablePanel"
+    0x0050  UITweener        "TweenPosition"
+    0x0058  UnityEngine.AnimationCurve  "AnimShowDetails"
+    0x0060  UnityEngine.AnimationCurve  "AnimHideDetails"
+    0x0068  clh              "e"
+    0x0070  System.Collections.Generic.List<CharacterDetailsGui.a>  "f"
+    0x0078  System.Int32     "g"
+    0x007c  System.Boolean   "h"
+    0x0080  LocalPlayerCharacterView  "i"
+    0x0000  dkb              "Relationship"
+
+  -- CharacterEquipmentView --
+    0x0018  UILabel          "GoldLabel"
+    0x0020  ShowTooltip      "GoldTooltip"
+    0x0028  UILabel          "SilverLabel"
+    0x0030  ShowTooltip      "SilverTooltip"
+    0x0038  UnityEngine.GameObject[]  "MoneyButtons"
+    0x0040  UnityEngine.GameObject[]  "MoneyIcons"
+    0x0048  UIEquipmentSlot[]  "EquipmentSlots"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterInfoGui --
+    0x0071  System.Boolean   "c"
+    0x0078  AlbionGui.CharacterGui.HeaderView  "HeaderViewDefault"
+    0x0080  AlbionGui.CharacterGui.HeaderView  "HeaderViewConsole"
+    0x0088  AlbionGui.CharacterGui.InventoryTabView  "<InventoryTabView>k__BackingField"
+    0x0090  AlbionGui.CharacterGui.SpellsTabView  "<SpellsTabView>k__BackingField"
+    0x0098  AlbionGui.CharacterGui.StatsTabView  "StatsTabView"
+    0x00a0  AlbionGui.Elements.TabViewController  "TabViewController"
+    0x00a8  System.Collections.Generic.List<UnityEngine.GameObject>  "EnableForTabbing"
+    0x00b0  UIDragScrollView  "<UIDragScrollView>k__BackingField"
+    0x0028  gj5              "g"
+    0x0050  System.String    "SoundOpen"
+    0x0058  System.String    "SoundClose"
+    0x0060  AlbionGui.Base.Layer.UILayerable  "Layerable"
+    0x0068  AnimateOpenWindow  "pWindowAnimation"
+    0x0070  System.Boolean   "h"
+    0x0000  dkb              "Relationship"
+
+  -- ArenaPlayerStatusEntry --
+    0x0018  UnityEngine.GameObject  "ReadyView"
+    0x0020  UnityEngine.GameObject  "NotReadyView"
+    0x0028  UILabel          "NameLabel"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CrystalLeaguePlayerStatusGui --
+    0x0078  UILabel          "HeaderLabel"
+    0x0080  UILabel          "PlayersReadyLabel"
+    0x0088  UILabel          "MatchStatusLabel"
+    0x0090  UIObjectListBuilder  "ListBuilder"
+    0x0098  UnityEngine.GameObject  "InviteButton"
+    0x00a0  dkd              "c"
+    0x0028  gj5              "g"
+    0x0050  System.String    "SoundOpen"
+    0x0058  System.String    "SoundClose"
+    0x0060  AlbionGui.Base.Layer.UILayerable  "Layerable"
+    0x0068  AnimateOpenWindow  "pWindowAnimation"
+    0x0070  System.Boolean   "h"
+    0x0000  dkb              "Relationship"
+    0x0008  gke              "AttributePreprocessor"
+    0x0010  System.Action<System.Type>  "AfterShowEvent"
+    0x0018  GuiScalerMobileBase  "a"
+
+  -- FriendListLocalPlayerEntry --
+    0x0090  UnityEngine.GameObject  "AddFriendButton"
+    0x0098  UnityEngine.GameObject  "RemoveFriendButton"
+    0x0000  UnityEngine.Color32  "a"
+    0x0004  UnityEngine.Color32  "b"
+    0x0060  UILabel          "StatusLabel"
+    0x0068  UISprite         "StatusSprite"
+    0x0070  UnityEngine.GameObject  "WhisperButton"
+    0x0078  UnityEngine.GameObject  "InviteButton"
+    0x0080  ShowTooltip      "InviteTooltip"
+    0x0088  System.Int64     "c"
+    0x0020  UITexture        "AvatarSprite"
+    0x0028  UITexture        "AvatarRingSprite"
+    0x0030  LinkedCharacterNameLabel  "NameLabel"
+    0x0038  UILabel          "PlatformIconLabel"
+    0x0040  UILabel          "PlatformNameLabel"
+    0x0048  UILabel          "GuildLabel"
+
+  -- MutedPlayersEntry --
+    0x0018  UILabel          "MutedAtLabel"
+    0x0020  LinkedCharacterNameLabel  "NameLabel"
+    0x0028  UILabel          "GuildLabel"
+    0x0030  UnityEngine.GameObject  "Line"
+    0x0038  System.Action<System.String>  "a"
+    0x0040  System.String    "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- MutedPlayersView --
+    0x0020  UIListbox        "ListBox"
+    0x0028  UnityEngine.GameObject  "EmptyView"
+    0x0030  UnityEngine.GameObject  "FilledView"
+    0x0038  MutedPlayersView.a  "a"
+    0x0018  AlbionGui.Friend.FriendGui  "FriendGui"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- GoldSilverToggleButton --
+    0x0018  UnityEngine.Transform  "PayUpkeepMarker"
+    0x0020  UnityEngine.Transform  "PayUpkeepMarkerGoldHook"
+    0x0028  UnityEngine.Transform  "PayUpkeepMarkerSilverHook"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- GvgPlayerEntry --
+    0x0018  UITexture        "AvatarTexture"
+    0x0020  UITexture        "AvatarRingTexture"
+    0x0028  UILabel          "PlayerNameLabel"
+    0x0030  UILabel          "GuildRoleLabel"
+    0x0038  UISprite         "StatusSprite"
+    0x0040  UILabel          "StatusLabel"
+    0x0048  UIButtonImage    "KickButton"
+    0x0050  System.Guid      "a"
+    0x0060  System.Guid      "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- GvG_StatsPlayerEntry --
+    0x0018  UILabel          "NameLabel"
+    0x0020  UILabel          "SkullLabel"
+    0x0028  UILabel          "OrbLabel"
+    0x0030  UILabel          "K_Label"
+    0x0038  UILabel          "D_Label"
+    0x0040  UILabel          "A_Label"
+    0x0048  UILabel          "AvgIP_Label"
+    0x0050  UISprite         "NameUnderline"
+    0x0058  UITexture        "Avatar"
+    0x0060  UITexture        "AvatarRing"
+    0x0068  AlbionItem[]     "Items"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- MatchPlayerStats --
+    0x0024  UnityEngine.Color  "NormalTextColor"
+    0x0034  UnityEngine.Color  "HighlightTextColor"
+    0x0044  UnityEngine.Color  "HeaderBottomHighlightTextColor"
+    0x0058  UILabel[]        "LeftSideLabels"
+    0x0060  UILabel[]        "RightSideLabels"
+    0x0068  UISprite[]       "LeftSideSprites"
+    0x0070  UISprite[]       "RightSideSprites"
+    0x0078  UnityEngine.GameObject[]  "LeftSideHighlight"
+    0x0080  UnityEngine.GameObject[]  "LeftSideNormal"
+    0x0088  UnityEngine.GameObject[]  "RightSideHighlight"
+    0x0090  UnityEngine.GameObject[]  "RightSideNormal"
+    0x0098  UnityEngine.GameObject  "TopWinnerHeader"
+    0x00a0  UnityEngine.GameObject  "GraphsWindow"
+    0x00a8  GuildLogoDisplay  "TopGuildLogo"
+    0x00b0  GuildLogoDisplay  "LeftGuildLogo"
+    0x00b8  GuildLogoDisplay  "RightGuildLogo"
+
+  -- HeroFrameType --
+    0x0010  System.Int32     "value__"
+    0x0000  HeroFrame.HeroFrameType  "Own"
+    0x0000  HeroFrame.HeroFrameType  "Target"
+    0x0000  System.Char[]    "enumSeperatorCharArray"
+    0x0000  System.String    "enumSeperator"
+
+  -- HeroFrame --
+    0x0018  HeroFrame.HeroFrameType  "Type"
+    0x0020  UnityEngine.Transform  "PivotFlipRootTransform"
+    0x0028  UISlider[]       "BarSliders"
+    0x0030  UIBasicSprite[]  "Sprites"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- HeroFramesHudGui --
+    0x0028  HeroStatsGui     "OwnFrame"
+    0x0030  HeroStatsGui     "TargetFrame"
+    0x0038  UnityEngine.GameObject  "InspectButtonVisibilitySwitch"
+    0x0040  System.Boolean   "c"
+    0x0048  cck              "d"
+    0x0000  dkb              "Relationship"
+    0x0008  gke              "AttributePreprocessor"
+    0x0010  System.Action<System.Type>  "AfterShowEvent"
+    0x0018  GuiScalerMobileBase  "a"
+    0x0020  System.Boolean   "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- HeroStatsContextMenuButton --
+    0x0018  UILabel          "Label"
+    0x0020  UIButtonImage    "Button"
+    0x0028  UnityEngine.GameObject  "SubMenuAnchor"
+    0x0030  UISprite         "SubMenuIndicator"
+    0x0038  ShowTooltip      "Tooltip"
+    0x0040  HeroStatsContextMenuGui.b  "a"
+    0x0044  System.Boolean   "b"
+    0x0048  System.String    "c"
+    0x0050  System.Int32     "d"
+    0x0058  HeroStatsContextMenuGui  "e"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- HeroStatsContextMenuGui --
+    0x0000  System.String    "LocaContextmenuMarkobject"
+    0x0000  System.String    "c"
+    0x0028  UIObjectListBuilder  "MenuButtonBuilder"
+    0x0030  ToggleSubmenu    "Submenu"
+    0x0038  UnityEngine.GameObject  "SubMenu"
+    0x0040  UIObjectListBuilder  "SubMenuButtonBuilder"
+    0x0048  System.Single    "OpenSubHoverDelay"
+    0x0050  ToggleSubmenu    "Toggle"
+    0x0058  UIAlignedWidget  "UIAlignedWidget"
+    0x0060  UIAlignedWidget  "SubMenuUIAlignedWidget"
+    0x0068  clb              "d"
+    0x0070  cyp              "e"
+    0x0078  UnityEngine.GameObject  "f"
+    0x0080  System.Single    "g"
+    0x0088  be               "h"
+    0x0090  HeroStatsContextMenuGui.b  "i"
+
+  -- HeroStatsGui --
+    0x0028  clb              "c"
+    0x0030  ckh              "d"
+    0x0038  cyp              "e"
+    0x0040  dnk              "f"
+    0x0048  UISlider         "HealthSlider"
+    0x0050  UISlider         "EnergySlider"
+    0x0058  UILabel          "HealthLabel"
+    0x0060  UILabel          "EnergyLabel"
+    0x0068  UILabel          "NameLabel"
+    0x0070  UnityEngine.GameObject  "AvatarContainer"
+    0x0078  UnityEngine.GameObject  "AvatarTextureScaling"
+    0x0080  UITexture        "AvatarTexture"
+    0x0088  UITexture        "AvatarRingTexture"
+    0x0090  HeroStatsContextMenuGui  "ContextMenu"
+    0x0098  UnityEngine.GameObject  "ContextMenuButton"
+    0x00a0  UnityEngine.Transform  "ContextMenuClosedAnchor"
+
+  -- CharacterName --
+    0x0000  System.Collections.Generic.Dictionary<WorldObjectView,CharacterName>  "b"
+    0x0008  System.Collections.Generic.List<CharacterName>  "c"
+    0x0000  System.String    "d"
+    0x0128  clb              "e"
+    0x0130  CharacterName.a  "f"
+    0x0134  CharacterName.a  "g"
+    0x0138  Albion.Common.GameData.FlaggingStatus  "h"
+    0x0139  System.Boolean   "i"
+    0x013a  System.Boolean   "j"
+    0x013c  UnityEngine.Vector3  "WorldPositionOffset"
+    0x0148  CharacterNameVariant  "CurrentStatePrefab"
+    0x0150  System.Int32     "AddedWidthForFirstCharacterNameBackground"
+    0x0154  System.Int32     "AddedTopForFirstCharacterNameBackground"
+    0x0158  System.Single    "VisibleDistance"
+    0x015c  System.Single    "InnerDistance"
+    0x0160  System.Single    "AfterInnerAlpha"
+
+  -- CharacterNameSettingContext --
+    0x0010  System.Int32     "value__"
+    0x0000  CharacterNameSettingContext  "SelfDefault"
+    0x0000  CharacterNameSettingContext  "SelfUnrestrictedPvpZone"
+    0x0000  CharacterNameSettingContext  "SelfPvp"
+    0x0000  CharacterNameSettingContext  "OtherParty"
+    0x0000  CharacterNameSettingContext  "OtherFaction"
+    0x0000  CharacterNameSettingContext  "OtherDefault"
+    0x0000  CharacterNameSettingContext  "OtherUnrestrictedPvpZone"
+    0x0000  CharacterNameSettingContext  "OtherPvp"
+    0x0000  CharacterNameSettingContext  "OtherDuelling"
+    0x0000  CharacterNameSettingContext  "OtherGuild"
+    0x0000  CharacterNameSettingContext  "OtherAlliance"
+    0x0000  System.Char[]    "enumSeperatorCharArray"
+    0x0000  System.String    "enumSeperator"
+
+  -- CharacterNameSettings --
+    0x0018  UnityEngine.Color32  "SelfColorFirstChar"
+    0x001c  UnityEngine.Color32  "SelfColorGuildName"
+    0x0020  UnityEngine.Color32  "SelfColorHPBar"
+    0x0024  UnityEngine.Color32  "SelfColorMountHPBar"
+    0x0028  UnityEngine.Color32  "SelfColorXRay"
+    0x002c  UnityEngine.Color32  "SelfUnRestrictedColorFirstChar"
+    0x0030  UnityEngine.Color32  "SelfUnRestrictedColorGuildName"
+    0x0034  UnityEngine.Color32  "SelfUnRestrictedColorHPBar"
+    0x0038  UnityEngine.Color32  "SelfUnRestrictedColorMountHPBar"
+    0x003c  UnityEngine.Color32  "SelfUnRestrictedColorXRay"
+    0x0040  UnityEngine.Color32  "SelfPvpColorFirstChar"
+    0x0044  UnityEngine.Color32  "SelfPvpColorGuildName"
+    0x0048  UnityEngine.Color32  "SelfPvpColorHPBar"
+    0x004c  UnityEngine.Color32  "SelfPvpColorHPBarFlashing"
+    0x0050  UnityEngine.Color32  "SelfPvpColorMountHPBar"
+    0x0054  UnityEngine.Color32  "SelfPvpColorXRay"
+
+  -- CharacterNameSettingType --
+    0x0010  System.Int32     "value__"
+    0x0000  CharacterNameSettingType  "FirstCharColor"
+    0x0000  CharacterNameSettingType  "GuildNameColor"
+    0x0000  CharacterNameSettingType  "HpColor"
+    0x0000  CharacterNameSettingType  "MountHpColor"
+    0x0000  CharacterNameSettingType  "XRayColor"
+    0x0000  System.Char[]    "enumSeperatorCharArray"
+    0x0000  System.String    "enumSeperator"
+
+  -- CharacterNameVariant --
+    0x0018  UnityEngine.GameObject  "NameDisplayParent"
+    0x0020  UnityEngine.GameObject  "BarDisplayParent"
+    0x0028  UILabel          "CharacterLabel"
+    0x0030  UILabel          "GuildLabel"
+    0x0038  UISprite         "HealthSlider"
+    0x0040  UISprite         "HealthDepletionSlider"
+    0x0048  UISprite         "ShieldSlider"
+    0x0050  UISprite         "EnergySlider"
+    0x0058  UISprite         "MountHealthSlider"
+    0x0060  UISprite         "MountDepletionSlider"
+    0x0068  UnityEngine.GameObject  "MountHealthBar"
+    0x0070  FerocityStackBar  "FerocityStackBar"
+    0x0078  UISprite         "ReputationDamageIcon"
+    0x0080  UISprite         "FounderFrame"
+    0x0088  UISprite         "FounderBackground"
+    0x0090  UISprite         "ObjectMarker"
+
+  -- ClassicCharacterNameSettings --
+    0x0018  UnityEngine.Color32  "SelfColorFirstChar"
+    0x001c  UnityEngine.Color32  "SelfColorGuildName"
+    0x0020  UnityEngine.Color32  "SelfColorHPBar"
+    0x0024  UnityEngine.Color32  "SelfColorMountHPBar"
+    0x0028  UnityEngine.Color32  "SelfColorXRay"
+    0x002c  UnityEngine.Color32  "SelfUnRestrictedColorFirstChar"
+    0x0030  UnityEngine.Color32  "SelfUnRestrictedColorGuildName"
+    0x0034  UnityEngine.Color32  "SelfUnRestrictedColorHPBar"
+    0x0038  UnityEngine.Color32  "SelfUnRestrictedColorMountHPBar"
+    0x003c  UnityEngine.Color32  "SelfUnRestrictedColorXRay"
+    0x0040  UnityEngine.Color32  "SelfPvpColorFirstChar"
+    0x0044  UnityEngine.Color32  "SelfPvpColorGuildName"
+    0x0048  UnityEngine.Color32  "SelfPvpColorHPBar"
+    0x004c  UnityEngine.Color32  "SelfPvpColorHPBarFlashing"
+    0x0050  UnityEngine.Color32  "SelfPvpColorMountHPBar"
+    0x0054  UnityEngine.Color32  "SelfPvpColorXRay"
+
+  -- ModernCharacterNameSettings --
+    0x00e4  UnityEngine.Color32  "HighlandColorFirstChar"
+    0x00e8  UnityEngine.Color32  "HighlandColorGuildName"
+    0x00ec  UnityEngine.Color32  "HighlandColorHPBar"
+    0x00f0  UnityEngine.Color32  "HighlandColorMountHPBar"
+    0x00f4  UnityEngine.Color32  "HighlandColorXRay"
+    0x00f8  UnityEngine.Color32  "MountainColorFirstChar"
+    0x00fc  UnityEngine.Color32  "MountainColorGuildName"
+    0x0100  UnityEngine.Color32  "MountainColorHPBar"
+    0x0104  UnityEngine.Color32  "MountainColorMountHPBar"
+    0x0108  UnityEngine.Color32  "MountainColorXRay"
+    0x010c  UnityEngine.Color32  "ForestColorFirstChar"
+    0x0110  UnityEngine.Color32  "ForestColorGuildName"
+    0x0114  UnityEngine.Color32  "ForestColorHPBar"
+    0x0118  UnityEngine.Color32  "ForestColorMountHPBar"
+    0x011c  UnityEngine.Color32  "ForestColorXRay"
+    0x0120  UnityEngine.Color32  "SteppeColorFirstChar"
+
+  -- SilverSlot --
+    0x0018  UILabel          "AmountLabel"
+    0x0020  UISprite         "MoneySprite"
+    0x0028  UILabel          "MoneyLabel"
+    0x0030  UIButtonImage    "InstallButton"
+    0x0038  UnityEngine.GameObject  "IsFullfilledOverlay"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- LoadoutCharacterDetailsView --
+    0x0000  System.String    "c"
+    0x0088  System.Boolean   "CompactOn4By3"
+    0x0090  UnityEngine.GameObject  "DetailsFlyoutButton"
+    0x0098  UnityEngine.GameObject  "DetailsCloseButtonCompact"
+    0x00a0  co4              "d"
+    0x00a8  coy              "e"
+    0x00b0  System.Boolean   "f"
+    0x0000  System.String    "c"
+    0x0000  System.String    "d"
+    0x0028  UISprite         "DetailsButtonIcon"
+    0x0030  UISprite         "DetailsButtonIconShadow"
+    0x0038  UnityEngine.GameObject  "DetailsContent"
+    0x0040  UIObjectListBuilder  "AttributeListBuilder"
+    0x0048  UIScrollView     "DraggablePanel"
+    0x0050  UITweener        "TweenPosition"
+    0x0058  UnityEngine.AnimationCurve  "AnimShowDetails"
+
+  -- DisableOtherOnDisableThis --
+    0x0018  System.Collections.Generic.List<UnityEngine.GameObject>  "OtherObjects"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- DisableOtherOnEnableThis --
+    0x0018  System.Collections.Generic.List<UnityEngine.GameObject>  "OtherObjects"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- PlayerBuildingHireLaborerView --
+    0x0028  UIListbox        "ListBox"
+    0x0030  UIScrollView     "ScrollView"
+    0x0038  UnityEngine.GameObject  "ListView"
+    0x0040  LaborerDetailView  "LaborerDetailView"
+    0x0048  UnityEngine.GameObject[]  "ObjectsToHideForList"
+    0x0018  CategorySelectionView  "a"
+    0x0020  cht              "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- PlayerBuildingInfoView --
+    0x0028  UILabel          "LabelOwner"
+    0x0030  UILabel          "LabelBuiltBy"
+    0x0038  UIToggle         "AttackForAllToggle"
+    0x0040  UILabel          "AttackForAllLabel"
+    0x0048  UILabel          "LabelFurnitureCount"
+    0x0050  UILabel          "LabelResidentsCount"
+    0x0058  UILabel          "LabelLaborerCount"
+    0x0060  UILabel          "LabelAccessStatus"
+    0x0068  UIButtonImage    "ButtonAccessRights"
+    0x0070  UIButtonImage    "ButtonMakeHome"
+    0x0078  UIButtonImage    "ButtonLeaveHome"
+    0x0080  UIButtonImage    "ButtonGiveup"
+    0x0088  UIButtonImage    "ButtonClaim"
+    0x0090  UISlider         "DurabilityBar"
+    0x0098  RenovationView   "RenovationView"
+    0x00a0  System.Boolean   "a"
+
+  -- CharacterStatRow --
+    0x0018  UILabel          "TitleLabel"
+    0x0020  UILabel          "ValueLabel"
+    0x0028  UnityEngine.GameObject  "PaperStrip"
+    0x0030  UIFont           "FontText"
+    0x0038  UIFont           "FontHeader"
+    0x0040  System.String    "a"
+    0x0048  System.Int64     "b"
+    0x0050  System.Int64     "c"
+    0x0058  Albion.Common.Infamy.InfamyType  "d"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterStatsGui --
+    0x0080  System.String    "c"
+    0x0088  System.Guid      "d"
+    0x0098  System.String    "e"
+    0x00a0  fpx              "f"
+    0x00a8  UILabel          "PlayerNameLabel"
+    0x00b0  UILabel          "PlatformNameLabel"
+    0x00b8  UITexture        "AvatarTexture"
+    0x00c0  UILabel          "ReputationLabel"
+    0x00c8  UIAnchorContainer  "HeaderContainer"
+    0x00d0  UIInput          "SpeechbubbleInput"
+    0x00d8  AlbionGui.UserGeneratedContentLabel  "SpeechbubbleLabel"
+    0x00e0  UIButtonColor    "SpeechbubbleButton"
+    0x00e8  UnityEngine.GameObject  "SpeechbubbleEditableView"
+    0x00f0  UnityEngine.GameObject  "GuildDisplay"
+    0x00f8  UILabel          "GuildRoleOfLabel"
+    0x0100  UILabel          "GuildNameLabel"
+
+  -- UISilverTradeSlot --
+    0x0018  UILabel          "SilverLabel"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- VanityCharacterCustomizationView --
+    0x0000  System.Int32     "a"
+    0x0040  UITableCoordinator  "TableCoordinator"
+    0x0048  VanityAvatarSlot  "SelectedAvatarSlot"
+    0x0050  UIToggle         "MaleToggle"
+    0x0058  UIToggle         "FemaleToggle"
+    0x0060  cle              "b"
+    0x0068  System.Boolean   "c"
+    0x0038  AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView[]  "CategoryViews"
+    0x0018  VanitySelectGui  "a"
+    0x0020  System.String    "<TitleText>k__BackingField"
+    0x0028  System.String    "<TutorialUniqueName>k__BackingField"
+    0x0030  AlbionGui.GamepadSupport.RegisterJumpTo  "<JumpTo>k__BackingField"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.CharacterCustomizeViewBase --
+    0x0038  AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView[]  "CategoryViews"
+    0x0018  VanitySelectGui  "a"
+    0x0020  System.String    "<TitleText>k__BackingField"
+    0x0028  System.String    "<TutorialUniqueName>k__BackingField"
+    0x0030  AlbionGui.GamepadSupport.RegisterJumpTo  "<JumpTo>k__BackingField"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterEntry --
+    0x0048  UnityEngine.GameObject  "PlusIcon"
+    0x0050  UILabel          "DefaultCharacterLabel"
+    0x0058  UnityEngine.GameObject  "DeleteButton"
+    0x0060  UnityEngine.GameObject  "Foldout"
+    0x0068  TweenPosition    "FoldoutTween"
+    0x0070  UILabel          "GuildNameLabel"
+    0x0078  UILabel          "PlayedTimeLabel"
+    0x0080  UILabel          "ClusterLabel"
+    0x0088  UnityEngine.GameObject  "NamePlateShadowLight"
+    0x0090  UnityEngine.GameObject  "NamePlateShadowStrong"
+    0x0098  System.Int32     "DefaultHeight"
+    0x009c  System.Int32     "SelectedHeight"
+    0x00a0  LoginGui.c       "a"
+    0x00a8  dqn              "b"
+    0x0018  UIWidget         "Widget"
+    0x0020  UITexture        "AvatarSprite"
+
+  -- CharacterEntryBase --
+    0x0018  UIWidget         "Widget"
+    0x0020  UITexture        "AvatarSprite"
+    0x0028  UILabel          "NameLabel"
+    0x0030  UILabel          "PremiumLabel"
+    0x0038  UnityEngine.GameObject  "HasPremiumView"
+    0x0040  UnityEngine.GameObject  "NoPremiumView"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterCreateCustomizeView --
+    0x0040  UITableCoordinator  "TableCoordinator"
+    0x0048  CreateCharacterDialog  "ParentDialog"
+    0x0050  GamepadBindingPrompt  "PreviousBindingPrompt"
+    0x0058  GamepadBindingPrompt  "RandomBindingPrompt"
+    0x0060  GamepadBindingPrompt  "NextBindingPrompt"
+    0x0038  AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView[]  "CategoryViews"
+    0x0018  VanitySelectGui  "a"
+    0x0020  System.String    "<TitleText>k__BackingField"
+    0x0028  System.String    "<TutorialUniqueName>k__BackingField"
+    0x0030  AlbionGui.GamepadSupport.RegisterJumpTo  "<JumpTo>k__BackingField"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterCustomizeWrapper --
+    0x0018  CharacterCreateCustomizeView  "DesktopCustomizeView"
+    0x0020  MobileCustomizeView  "MobileCustomizeView"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterSelectionDialog --
+    0x0000  LoginGui.c       "SelectedCharacterRecord"
+    0x0020  UnityEngine.GameObject  "DialogView"
+    0x0028  UnityEngine.GameObject  "DeletingCharacterView"
+    0x0030  ConfirmDeleteCharacterView  "ConfirmDeleteCharacterView"
+    0x0038  UnityEngine.GameObject  "LoginWithCharacterView"
+    0x0040  UnityEngine.GameObject  "SelectNewCharacterCluster"
+    0x0048  UnityEngine.GameObject  "SelectAlternativeForFullCluster"
+    0x0050  UIObjectListBuilder  "CharacterEntryBuilder"
+    0x0058  UnityEngine.GameObject  "CharacterEntryMobile"
+    0x0060  UnityEngine.GameObject  "CharacterEntryDesktop"
+    0x0068  UnityEngine.GameObject  "BuyButtonsParent"
+    0x0070  UIButtonImage    "EnterWorldButton"
+    0x0078  NameReservationView  "NameReservationView"
+    0x0080  UnityEngine.GameObject  "PlayTutorialParent"
+    0x0088  UIToggle         "PlayTutorialToggle"
+    0x0090  UIButtonImage    "PlayTutorialButton"
+
+  -- ConfirmDeleteCharacterView --
+    0x0018  UIInput          "VerificationInput"
+    0x0020  UISprite         "VerificationInputBg"
+    0x0028  UILabel          "Text"
+    0x0030  UIButtonImage    "YesButton"
+    0x0038  UnityEngine.Color  "VerificationBgColorInvalid"
+    0x0048  UnityEngine.Color  "VerificationBgColorValid"
+    0x0058  ComponentField<CharacterEntryBase>  "CharacterEntry"
+    0x0060  GamepadBindingPrompt  "BackBindingPrompt"
+    0x0068  GamepadBindingPrompt  "DeleteBindingPrompt"
+    0x0070  System.String    "a"
+    0x0078  System.Action    "b"
+    0x0080  System.Action    "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CreateCharacterDialog --
+    0x0020  cle              "a"
+    0x0028  bzr              "b"
+    0x0030  b2s              "c"
+    0x0038  System.Int32     "d"
+    0x003c  System.Boolean   "e"
+    0x0040  ComponentField<SelectAvatarView>  "SelectAvatarView"
+    0x0048  CharacterCustomizeWrapper  "CharacterCustomize"
+    0x0050  EnterNameView    "EnterNameView"
+    0x0058  UnityEngine.GameObject  "CreatingCharacterView"
+    0x0060  NameReservationView  "NameReservationView"
+    0x0068  UILabel          "SteamIdLabel"
+    0x0070  UILabel          "AccountNameLabel"
+    0x0078  GamepadBindingPrompt  "RotateCharacterLeft"
+    0x0080  GamepadBindingPrompt  "RotateCharacterRight"
+    0x0088  UnityEngine.GameObject  "RotateCharacterTooltip"
+    0x0090  CreateCharacterDialog.a  "f"
+
+  -- CharacterCreationCustomizeViewBase --
+    0x0018  CreateCharacterDialog  "ParentDialog"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- MobileCharacterCreationButton --
+    0x0000  det<MobileCharacterCreationButton>  "List"
+    0x0018  UnityEngine.Events.UnityEvent  "OnChange"
+    0x0020  System.Object    "a"
+    0x0028  System.Int32     "GroupId"
+    0x0030  UILabel          "Label"
+    0x0038  UISprite         "NormalIcon"
+    0x0040  UISprite         "SelectedIcon"
+    0x0048  UISprite         "Background"
+    0x0050  UnityEngine.GameObject  "SelectedHighlight"
+    0x0058  UnityEngine.Color  "NormalBackgroundColor"
+    0x0068  UnityEngine.Color  "SelectedBackgroundColor"
+    0x0078  UnityEngine.Color  "NormalLabelColor"
+    0x0088  UnityEngine.Color  "SelectedLabelColor"
+    0x0098  System.Boolean   "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+
+  -- LoginCharacterToGameDialog --
+    0x0018  LoginGui         "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- PlayerFeedbackGui --
+    0x0078  UnityEngine.GameObject  "SendFeedbackView"
+    0x0080  UnityEngine.GameObject  "BusyView"
+    0x0088  UnityEngine.GameObject  "CompleteView"
+    0x0090  UIButtonImage    "SubmitButton"
+    0x0098  UIInput          "InputBox"
+    0x00a0  UILabel          "CharacterCountLabel"
+    0x00a8  UILabel          "ErrorLabel"
+    0x00b0  UITweener        "ErrorLabelTweenCol"
+    0x00b8  UITweener        "CharacterCountLabelTweenCol"
+    0x00c0  UITweener        "EnterMessageLabelTweenCol"
+    0x00c8  UnityEngine.Color  "BugTextColor"
+    0x00d8  UILabel          "BugInfoLabel"
+    0x00e0  UIGrid           "CategoryGrid"
+    0x00e8  UIToggle         "TogglePrefab"
+    0x00f0  OptionToggleBar  "CategoryBugToggle"
+    0x00f8  UIToggle         "CategoryGameplayToggle"
+
+  -- CharacterCustomizationPreviewMeshProvider --
+    0x0000  CharacterCustomizationPreviewMeshProvider  "a"
+    0x0018  bzu              "b"
+    0x0008  System.String    "c"
+    0x0010  System.Int32[]   "aMeshColorHash"
+    0x0020  System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.Dictionary<System.String,CharacterCustomizationPreviewMeshProvider.a>>  "d"
+    0x0028  System.Collections.Generic.Dictionary<System.Int32,CharacterCustomizationPreviewMeshProvider.a>  "e"
+    0x0030  UIAtlas          "pAtlas"
+    0x0038  System.Collections.Generic.List<UISpriteData>  "f"
+    0x0040  UnityEngine.Material  "g"
+    0x0048  System.Int32     "h"
+    0x004c  System.Boolean   "i"
+    0x0050  System.Int32     "j"
+    0x0000  System.Boolean   "k"
+    0x0058  SerializableDictionary<System.String,OffscreenSceneSettings>  "hSceneSettings"
+    0x0060  SerializableDictionary<System.String,OffscreenSceneSettings>  "hSceneSettingsFemale"
+    0x0068  System.Collections.Generic.HashSet<CharacterCustomizationPreviewMeshProvider.a>  "l"
+
+  -- CharacterCameraAnimation --
+    0x0090  UnityEngine.Transform  "BezierCurvePointOne"
+    0x0098  UnityEngine.Transform  "BezierCurvePointTwo"
+    0x00a0  System.Boolean   "a"
+    0x00a4  System.Single    "b"
+    0x00a8  System.Int32     "c"
+    0x00b0  System.Collections.Generic.List<CameraAnimation.ViewTransform>  "d"
+    0x00b8  System.String    "e"
+    0x00c0  UnityEngine.GameObject  "f"
+    0x00c8  CameraAnimation.ViewTransform  "g"
+    0x0000  System.Single    "FRAMES_PER_SCROLL"
+    0x0018  UnityEngine.Transform  "pCachedTransform"
+    0x0020  CameraAnimation.CameraViewHash  "CameraViews"
+    0x0028  System.String    "DefaultCameraView"
+    0x0030  UnityEngine.AnimationCurve  "CameraAnimationCurve"
+    0x0038  System.Single    "CameraAnimationCurveDuration"
+    0x003c  System.Single    "ScrollSpeed"
+
+  -- LocalInputHandler --
+    0x0000  System.String    "AttackColliderName"
+    0x0008  System.String    "GenericColliderName"
+    0x0010  System.String    "DestructColliderName"
+    0x0018  System.String    "ConstructColliderName"
+    0x0020  System.String    "EntranceColliderName"
+    0x0028  System.String    "InfoColliderName"
+    0x0030  System.String    "SecondaryActionColliderName"
+    0x0000  System.Single    "DELTA_TARGET_FPS"
+    0x0038  System.Boolean   "AllowTouchTeleportation"
+    0x0018  UnityEngine.RaycastHit[]  "a"
+    0x0020  UnityEngine.Camera  "b"
+    0x0028  Highlight        "c"
+    0x0030  Albion.Common.Time.GameTimeStamp  "d"
+    0x0038  c2               "e"
+    0x0040  Albion.Common.GameData.CharacterSpellSlot  "f"
+    0x0048  Albion.Common.Time.GameTimeStamp  "g"
+
+  -- LocalPlayerCharacterView --
+    0x0000  c2               "TimeTextLocked"
+    0x0008  c2               "SPELL_EXPIRY_TIMEFRAME_TOLERANCE"
+    0x0290  UnityEngine.Light  "FocusLight"
+    0x0298  System.Boolean   "ChangeEquipAutoDebug"
+    0x02a0  WwiseAudioListener  "c"
+    0x02a8  UnityEngine.Vector3  "d"
+    0x02b4  UnityEngine.Vector3  "e"
+    0x02c0  LocalInputHandler  "f"
+    0x02c8  ActorCameraController  "g"
+    0x02d0  System.Boolean   "h"
+    0x02d8  dgx              "i"
+    0x02e0  System.Int64     "j"
+    0x02e8  UnityEngine.Camera  "k"
+    0x02f0  UnityEngine.GameObject  "FadeOutTriggerParent"
+    0x02f8  dt6              "l"
+    0x0300  UnityEngine.GameObject  "m"
+
+  -- PlayerCharacterView --
+    0x0000  System.Boolean   "c"
+    0x01b0  UnityEngine.GameObject  "PlaceHolderGameObject"
+    0x01b8  UnityEngine.GameObject  "VisibilityEnforcerGameObject"
+    0x01c0  UnityEngine.GameObject  "DefaultClickableTrigger"
+    0x01c8  System.Boolean   "d"
+    0x01c9  System.Boolean   "e"
+    0x01d0  bk               "EquipmentChanged"
+    0x01d8  System.Int32     "f"
+    0x01dc  System.Int32     "g"
+    0x01e0  System.Boolean   "h"
+    0x01e4  System.Int32     "i"
+    0x01e8  System.Int32     "j"
+    0x01ec  System.Int32     "k"
+    0x01f0  c2               "l"
+    0x01f8  c2               "m"
+    0x0200  WwiseDynamicGameObj  "n"
+
+  -- RemotePlayerCharacterView --
+    0x0290  DisplayWorldObjectAnchoredGui  "c"
+    0x0298  DisplayCharacterNameWorldObjectAnchoredGui  "d"
+    0x02a0  CastBar          "e"
+    0x02a8  Vfx              "f"
+    0x02b0  cck              "g"
+    0x02b8  cck              "h"
+    0x0000  System.Boolean   "c"
+    0x01b0  UnityEngine.GameObject  "PlaceHolderGameObject"
+    0x01b8  UnityEngine.GameObject  "VisibilityEnforcerGameObject"
+    0x01c0  UnityEngine.GameObject  "DefaultClickableTrigger"
+    0x01c8  System.Boolean   "d"
+    0x01c9  System.Boolean   "e"
+    0x01d0  bk               "EquipmentChanged"
+    0x01d8  System.Int32     "f"
+    0x01dc  System.Int32     "g"
+    0x01e0  System.Boolean   "h"
+
+  -- PlayerBuildingView --
+    0x0040  UnityEngine.Transform  "c"
+    0x0048  System.Collections.Generic.Dictionary<System.String,dgq>  "d"
+    0x0050  dgr              "e"
+    0x0058  UnityEngine.GameObject  "f"
+    0x0060  UnityEngine.GameObject  "g"
+    0x0068  System.Action<czk>  "pCustomSoundOnBuildingActionDelegate"
+    0x0070  System.Action<bbe,System.String>  "pCustomSoundCraftingDelegate"
+    0x0078  System.Single    "h"
+    0x0080  do9              "i"
+    0x0088  Albion.Common.GameData.ProximityTooltipType  "j"
+    0x008c  System.Boolean   "k"
+    0x0000  System.Int32     "DefaultClickPriority"
+    0x0000  System.Int32     "MinClickPriority"
+    0x0000  System.Int32     "MaxClickPriority"
+    0x0028  System.Collections.Generic.List<dsv>  "c"
+    0x0030  System.Collections.Generic.List<dsv>  "d"
+
+  -- SilverObjectView --
+    0x0040  SilverCoins      "c"
+    0x0000  System.Int32     "DefaultClickPriority"
+    0x0000  System.Int32     "MinClickPriority"
+    0x0000  System.Int32     "MaxClickPriority"
+    0x0028  System.Collections.Generic.List<dsv>  "c"
+    0x0030  System.Collections.Generic.List<dsv>  "d"
+    0x0038  System.Boolean   "e"
+    0x0018  cfm              "a"
+    0x0020  UnityEngine.Transform  "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- SubtitlePlayerUI --
+    0x0018  UILabel[]        "SubTitleLabels"
+    0x0020  UnityEngine.Video.VideoPlayer  "a"
+    0x0028  System.Collections.Generic.List<dx8>  "b"
+    0x0030  System.Collections.Generic.IReadOnlyList<dx8>  "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- LoginPlayerCharAnimStateProvider --
+    0x00e9  System.Boolean   "a"
+    0x00ea  System.Boolean   "b"
+    0x00eb  System.Boolean   "c"
+    0x00ec  System.Boolean   "d"
+    0x00f0  dx3              "e"
+    0x00f8  System.String    "f"
+    0x0100  System.String    "g"
+    0x0108  System.String    "h"
+    0x0110  System.String    "i"
+    0x0118  System.String    "j"
+    0x0120  System.Boolean   "bEnforceUpperBodyActive"
+    0x0121  System.Boolean   "k"
+    0x0128  Albion.Common.Time.GameTimeStamp  "l"
+    0x00e8  System.Boolean   "bSupportsAlternatingAttacks"
+    0x0018  System.Int32     "AnimPresetId"
+    0x0020  b38              "a"
+
+  -- PlayerCharAnimStateProvider --
+    0x00e9  System.Boolean   "a"
+    0x00ea  System.Boolean   "b"
+    0x00eb  System.Boolean   "c"
+    0x00ec  System.Boolean   "d"
+    0x00f0  dx3              "e"
+    0x00f8  System.String    "f"
+    0x0100  System.String    "g"
+    0x0108  System.String    "h"
+    0x0110  System.String    "i"
+    0x0118  System.String    "j"
+    0x0120  System.Boolean   "bEnforceUpperBodyActive"
+    0x0121  System.Boolean   "k"
+    0x0128  Albion.Common.Time.GameTimeStamp  "l"
+    0x00e8  System.Boolean   "bSupportsAlternatingAttacks"
+    0x0018  System.Int32     "AnimPresetId"
+    0x0020  b38              "a"
+
+  -- AlbionGui.LocalQuests.LocalQuestMapLabel --
+    0x00e8  f5b              "b"
+    0x0000  System.String[]  "b"
+    0x0008  System.String[]  "c"
+    0x0010  System.String[]  "d"
+    0x0018  System.String[]  "e"
+    0x0018  System.String    "Type"
+    0x0020  System.Int64     "ObjectId"
+    0x0028  UISprite         "pUiSprite"
+    0x0030  UISprite         "ShadowSprite"
+    0x0038  UnityEngine.Collider  "Hitbox"
+    0x0040  System.Single    "fScaleFactor"
+    0x0044  System.Boolean   "IgnoreMapScale"
+    0x0048  System.Collections.Generic.List<MapLabelPing>  "f"
+    0x0000  System.String    "g"
+    0x0050  Albion.Common.Math.Vector2  "h"
+    0x0058  System.Boolean   "i"
+
+  -- AlbionClient.Platform.SourcePlayerInfo --
+    0x0010  System.String    "<GamerTag>k__BackingField"
+    0x0018  System.String    "<CharacterName>k__BackingField"
+    0x0020  System.Guid      "<CharacterId>k__BackingField"
+
+  -- AdvancedInputFieldPlugin.CharacterCondition --
+    0x0010  d0h              "conditionOperator"
+    0x0014  System.Int32     "conditionIntValue1"
+    0x0018  System.Int32     "conditionIntValue2"
+    0x0020  System.String    "conditionStringValue"
+
+  -- AdvancedInputFieldPlugin.CharacterRule --
+    0x0010  AdvancedInputFieldPlugin.CharacterCondition[]  "conditions"
+    0x0018  d0i              "action"
+    0x001c  System.Int32     "actionIntValue"
+
+  -- AdvancedInputFieldPlugin.CharacterValidator --
+    0x0018  AdvancedInputFieldPlugin.CharacterRule[]  "rules"
+    0x0020  d0i              "otherCharacterAction"
+    0x0024  System.Int32     "otherCharacterActionIntValue"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterCustomization.SubCategory.CustomizationSubCategory --
+    0x0010  System.Int32     "value__"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "Face"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "Hair"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "Beard"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "Underwear"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "SkinColor"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "HairColor"
+    0x0000  CharacterCustomization.SubCategory.CustomizationSubCategory  "UnderwearColor"
+    0x0000  System.Char[]    "enumSeperatorCharArray"
+    0x0000  System.String    "enumSeperator"
+
+  -- CharacterCustomization.SubCategory.CharacterCustomizeSubCategoryView --
+    0x0018  UILabel          "TitleLabel"
+    0x0020  ComponentField<UIObjectListBuilder>  "Builder"
+    0x0028  CharacterCustomization.SubCategory.CustomizationSubCategory  "SubCategory"
+    0x0030  AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView  "a"
+    0x0038  bzx              "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterCustomization.SubCategory.ColorCharacterCustomizeSubCategoryView --
+    0x0018  UILabel          "TitleLabel"
+    0x0020  ComponentField<UIObjectListBuilder>  "Builder"
+    0x0028  CharacterCustomization.SubCategory.CustomizationSubCategory  "SubCategory"
+    0x0030  AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView  "a"
+    0x0038  bzx              "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- CharacterCustomization.SubCategory.MeshCharacterCustomizeSubCategoryView --
+    0x0018  UILabel          "TitleLabel"
+    0x0020  ComponentField<UIObjectListBuilder>  "Builder"
+    0x0028  CharacterCustomization.SubCategory.CustomizationSubCategory  "SubCategory"
+    0x0030  AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView  "a"
+    0x0038  bzx              "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- WorldMap.WorldMapLayers --
+    0x0018  System.Collections.Generic.List<UnityEngine.GameObject>  "LayerObjects"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.PartyFinder.PartyFinderPlayerEntry --
+    0x0018  UILabel          "PlayerName"
+    0x0020  UILabel          "IPLabel"
+    0x0028  UnityEngine.GameObject  "DPSDisabled"
+    0x0030  UnityEngine.GameObject  "TankDisabled"
+    0x0038  UnityEngine.GameObject  "HealDisabled"
+    0x0040  UnityEngine.GameObject  "DropDownGameObject"
+    0x0048  cys              "a"
+    0x0050  AlbionGui.PartyFinder.PartyFinderPartyEntryBase  "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.PartyAnswerInvitation.PartyInvitationPlayerEntry --
+    0x0018  UILabel          "PlayerName"
+    0x0020  UILabel          "IPLabel"
+    0x0028  UnityEngine.GameObject  "EquipmentButton"
+    0x0030  cyo              "PartyMember"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.TransferSilver.TransferSilverGui --
+    0x0080  UISliderInput    "InputSlider"
+    0x0088  UIGamepadNumberInput  "GamepadInput"
+    0x0090  UILabel          "MessageLabel"
+    0x0098  UIButtonImage    "PayButton"
+    0x00a0  UILabel          "PayButtonLabel"
+    0x00a8  UILabel          "AmountLabel"
+    0x00b0  UITexture        "ModuleIconTexture"
+    0x00b8  a5z              "d"
+    0x00c0  a5z              "e"
+    0x00c8  a5z              "f"
+    0x00d0  a5z              "g"
+    0x00d8  a5z              "h"
+    0x00e0  a5z              "i"
+    0x00e8  a5z              "j"
+    0x00f0  System.Boolean   "k"
+    0x00f1  System.Boolean   "l"
+
+  -- AlbionGui.LocalQuests.LocalQuestHudTaskEntry --
+    0x0018  UnityEngine.GameObject  "InProgressView"
+    0x0020  UnityEngine.GameObject  "FinishedView"
+    0x0028  UILabel          "Label"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.LocalQuests.LocalQuestTooltip --
+    0x0030  UISprite         "Sprite"
+    0x0038  UILabel          "TitleLabel"
+    0x0040  UILabel          "TitleWithoutProgress"
+    0x0048  UnityEngine.GameObject  "ProgressBarGameObject"
+    0x0050  UIProgressBar    "ProgressBar"
+    0x0058  UILabel          "ProgressBarLabel"
+    0x0018  CustomTooltip    "CustomTooltip"
+    0x0020  UnityEngine.Color  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.LocalQuests.LocalQuestTrackerHudGui --
+    0x0050  UIObjectListBuilder  "EntryList"
+    0x0058  UILabel          "TitleLabel"
+    0x0060  UILabel          "ConditionLabel"
+    0x0068  UIProgressBar    "ProgressBar"
+    0x0070  cok              "a"
+    0x0078  gll              "b"
+    0x0018  UnityEngine.GameObject  "VisibilityToggle"
+    0x0020  UnityEngine.GameObject  "InfoButton"
+    0x0028  System.Collections.Generic.List<UITweener>  "GlowTweeners"
+    0x0030  ResizableWidget  "ResizableWidget"
+    0x0038  System.Action<AlbionGui.CombinedTrackerHudGui.TrackerHudGui>  "a"
+    0x0040  AlbionGui.CombinedTrackerHudGui.CombinedTrackerHudEntryGui  "b"
+    0x0048  UIButtonImage    "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+
+  -- AlbionGui.GvgSeason.GuildPlayerStatsChallengeGui --
+    0x0018  UIListbox        "MemberEntryListBox"
+    0x0020  UIScrollView     "ScrollView"
+    0x0028  UnityEngine.GameObject  "LoadingMessage"
+    0x0030  AlbionGui.GvgSeason.GuildPlayerStatsChallengeGui.a  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.GuildLogs.GuildPlayerRoleStatsListEntry --
+    0x0050  AlbionGui.RightsManagement.TagDisplay  "GuildRankIcon"
+    0x0058  UILabel          "GuildRankLabel"
+    0x0018  UILabel          "RankLabel"
+    0x0020  UILabel          "NameLabel"
+    0x0028  LinkedCharacterNameLabel  "LinkedNameLabel"
+    0x0030  AlbionGui.LinkedGuildNameLabel  "LinkedGuildNameLabel"
+    0x0038  UILabel          "AmountLabel"
+    0x0040  UnityEngine.GameObject  "Strip"
+    0x0048  UnityEngine.GameObject  "OwnStrip"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.GuildManagement.GuildPlayerStatsListEntry --
+    0x0018  UILabel          "RankLabel"
+    0x0020  UILabel          "NameLabel"
+    0x0028  LinkedCharacterNameLabel  "LinkedNameLabel"
+    0x0030  AlbionGui.LinkedGuildNameLabel  "LinkedGuildNameLabel"
+    0x0038  UILabel          "AmountLabel"
+    0x0040  UnityEngine.GameObject  "Strip"
+    0x0048  UnityEngine.GameObject  "OwnStrip"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.Friend.LocalPlayersView --
+    0x0020  UIRolloutScrollView  "<SortByDropdown>k__BackingField"
+    0x0028  UIListbox        "FriendsEntryList"
+    0x0030  UnityEngine.GameObject  "FriendsEmptyView"
+    0x0038  UnityEngine.GameObject  "FriendsFilledView"
+    0x0040  UIInput          "SearchInput"
+    0x0048  AlbionGui.Friend.LocalPlayersView.b  "a"
+    0x0018  AlbionGui.Friend.FriendGui  "FriendGui"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.CharacterAbilitiesFlyout --
+    0x0020  UIObjectListBuilder  "EquipmentList"
+    0x0028  Albion.Common.GameData.EquipmentSlot[]  "ShownEquipmentSlots"
+    0x0030  UnityEngine.GameObject  "LoadingState"
+    0x0038  UnityEngine.GameObject  "ReadyState"
+    0x0040  UnityEngine.GameObject  "EmptyState"
+    0x0018  gfa              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.CharacterInspectFlyout`1 --
+    0x0000  T                "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.CharacterEquipmentTab --
+    0x0030  AlbionGui.CharacterInspect.CharacterEquipmentTab.ItemSlotData[]  "Slots"
+    0x0038  UIButtonImage    "LoadoutSaveButton"
+    0x0040  UnityEngine.GameObject  "LoadingState"
+    0x0048  UnityEngine.GameObject  "ReadyState"
+    0x0018  gfa              "a"
+    0x0020  AlbionGui.CharacterInspect.CharacterInspectFlyout<gfa>  "Flyout"
+    0x0028  System.Boolean   "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.CharacterInspectTab`1 --
+    0x0000  T                "a"
+    0x0000  AlbionGui.CharacterInspect.CharacterInspectFlyout<T>  "Flyout"
+    0x0000  System.Boolean   "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.CharacterInspectGui --
+    0x0000  System.String    "FlyoutPlayerPrefsKey"
+    0x0080  ge6              "g"
+    0x0088  UILabel          "ViewTitle"
+    0x0090  LinkedCharacterNameLabel  "LinkedCharacterName"
+    0x0098  AlbionGui.LinkedGuildNameLabel  "CharacterGuildLabel"
+    0x00a0  UILabel          "CharacterItemPowerLabel"
+    0x00a8  UILabel          "CharacterEquipmentEstimatedMarketValueLabel"
+    0x00b0  UITexture        "Avatar"
+    0x00b8  AlbionGui.Elements.TabViewController  "TabViewController"
+    0x00c0  UnityEngine.GameObject  "TabButtons"
+    0x00c8  UnityEngine.GameObject  "Flyout"
+    0x00d0  TweenPosition    "FlyoutTween"
+    0x00d8  UnityEngine.AnimationCurve  "AnimShowDetails"
+    0x00e0  UnityEngine.AnimationCurve  "AnimHideDetails"
+    0x00e8  Albion.Input.UIInputControlContextSwitch  "FlyoutControlContextSwitch"
+    0x00f0  UISprite[]       "FlyoutIcons"
+
+  -- AlbionGui.CharacterInspect.CharacterVanityAbilitiesFlyout --
+    0x0020  UIListbox        "VanityAbilitiesListbox"
+    0x0028  Albion.Common.GameData.EquipmentSlot[]  "ShownEquipmentSlots"
+    0x0030  UnityEngine.GameObject  "EmptyState"
+    0x0038  UILabel          "EmptyReasonLabel"
+    0x0040  AlbionGui.CharacterInspect.CharacterVanityAbilitiesFlyout.a  "a"
+    0x0018  gfb              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.CharacterVanityTab --
+    0x0030  AlbionGui.CharacterInspect.CharacterVanityTab.VanityWardrobeSlotData[]  "WardrobeSlots"
+    0x0038  AlbionGui.CharacterInspect.VanitySlot.CharacterInspectMountSkinSlot  "MountSkinSlot"
+    0x0040  beb.b[]          "a"
+    0x0018  gfb              "a"
+    0x0020  AlbionGui.CharacterInspect.CharacterInspectFlyout<gfb>  "Flyout"
+    0x0028  System.Boolean   "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.ItemAbilitiesView --
+    0x0018  UILabel          "Title"
+    0x0020  UIObjectListBuilder  "EquipmentList"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.VanityItemAbilitiesView --
+    0x0018  UILabel          "Title"
+    0x0020  UIObjectListBuilder  "AbilitiesList"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.VanitySlot.CharacterInspectMountSkinSlot --
+    0x0018  dpo<bb9.b>       "a"
+    0x0020  System.Boolean   "b"
+    0x0028  UISprite         "Icon"
+    0x0030  UISprite         "SourcesIcon"
+    0x0038  UIButtonImage    "Button"
+    0x0040  System.Collections.Generic.List<UIWidget>  "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.VanitySlot.CharacterInspectVanitySkinSlot`1 --
+    0x0000  dpo<T>           "a"
+    0x0000  System.Boolean   "b"
+    0x0000  UISprite         "Icon"
+    0x0000  UISprite         "SourcesIcon"
+    0x0000  UIButtonImage    "Button"
+    0x0000  System.Collections.Generic.List<UIWidget>  "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterInspect.VanitySlot.CharacterInspectWardrobeSlot --
+    0x0048  beb.b[]          "a"
+    0x0018  dpo<beb.b>       "a"
+    0x0020  System.Boolean   "b"
+    0x0028  UISprite         "Icon"
+    0x0030  UISprite         "SourcesIcon"
+    0x0038  UIButtonImage    "Button"
+    0x0040  System.Collections.Generic.List<UIWidget>  "c"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.CharacterInfoGuiTabBase --
+    0x0018  CharacterInfoGui  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.GamepadActionListEntry --
+    0x0018  UILabel          "Label"
+    0x0020  UILabel          "LeftAlignedLabel"
+    0x0028  UISprite         "Sprite"
+    0x0030  AlbionGui.CharacterGui.InventorySortingDropdown  "InventorySortDropdown"
+    0x0038  AlbionGui.Elements.Dropdown.UIDropdownButton  "Dropdown"
+    0x0040  UIKeyNavigation  "KeyNavigation"
+    0x0048  System.Action    "a"
+    0x0050  System.Action<gjk,System.Int32>  "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.GamepadActionsGui --
+    0x0080  UIObjectListBuilder  "ListBuilder"
+    0x0088  UIWidget         "Widget"
+    0x0028  gj5              "g"
+    0x0050  gju              "h"
+    0x0058  System.String    "SoundOpen"
+    0x0060  System.String    "SoundClose"
+    0x0068  AlbionGui.Base.Layer.UILayerable  "Layerable"
+    0x0070  AnimateOpenWindow  "pWindowAnimation"
+    0x0078  System.Boolean   "i"
+    0x0000  dkb              "Relationship"
+    0x0008  gke              "AttributePreprocessor"
+    0x0010  System.Action<System.Type>  "AfterShowEvent"
+    0x0018  GuiScalerMobileBase  "a"
+    0x0020  System.Boolean   "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+
+  -- AlbionGui.CharacterGui.HeaderView --
+    0x0018  UITexture        "Avatar"
+    0x0020  UILabel          "NameLabel"
+    0x0028  dkd              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.InventoryFooter --
+    0x0018  EstimatedMarketValue  "EstimatedMarketValue1"
+    0x0020  EstimatedMarketValue  "EstimatedMarketValue2"
+    0x0028  AlbionGui.CharacterGui.InventoryFooter  "ViewToggle"
+    0x0030  AlbionGui.CharacterGui.InventoryTabView  "pInventoryTabView"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.InventoryOptionsFlyout --
+    0x0070  UnityEngine.GameObject  "MobileOptionsView"
+    0x0078  UnityEngine.GameObject[]  "RadioButtons"
+    0x0080  AlbionGui.CharacterGui.InventorySortingDropdown  "<InventorySortingDropdown>k__BackingField"
+    0x0088  AlbionGui.CharacterGui.InventoryTabView  "a"
+    0x0090  System.Boolean   "b"
+    0x0000  System.String    "SelectedSortPreferenceKey"
+    0x0000  System.String    "SelectedSortOrderPreferenceKey"
+    0x0000  System.String    "SelectedInventorySizePreferenceKey"
+    0x0018  UnityEngine.Events.UnityEvent  "OpenEvent"
+    0x0020  UnityEngine.Events.UnityEvent  "CloseEvent"
+    0x0028  UITweener        "FlyoutTween"
+    0x0030  UITweener        "MainWindowTween"
+    0x0038  UnityEngine.AnimationCurve  "OpenCurve"
+    0x0040  UnityEngine.AnimationCurve  "CloseCurve"
+    0x0048  UnityEngine.Transform  "FlyoutButtonIcon"
+    0x0050  System.Boolean   "ToggleGameObject"
+
+  -- AlbionGui.CharacterGui.InventorySortingDropdown --
+    0x0018  System.Action<gjk>  "a"
+    0x0020  AlbionGui.Elements.Dropdown.UIDropdownButton  "<SortingDropdown>k__BackingField"
+    0x0028  UISprite[]       "<SortIcons>k__BackingField"
+    0x0030  ShowTooltip      "<SortingToggleTooltip>k__BackingField"
+    0x0038  System.Collections.Generic.List<gjk>  "b"
+    0x0040  System.Collections.Generic.List<gjk>  "c"
+    0x0048  dlt              "d"
+    0x004c  System.Boolean   "e"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.InventoryTabView --
+    0x0020  UnityEngine.Transform  "<GamepadActionsGuiAnchor>k__BackingField"
+    0x0028  UIItemStorage    "EquipmentStorage"
+    0x0030  UISearchableItemStorage  "InventoryItemStorage"
+    0x0038  UIListbox        "InventoryListBox"
+    0x0040  UILabel          "WeightLabel"
+    0x0048  ShowTooltip      "WeightTooltip"
+    0x0050  UISlider         "WeightProgressBarMounted"
+    0x0058  UISlider         "WeightProgressBarDismounted"
+    0x0060  UIWidget[]       "WeightPercentageMarkers"
+    0x0068  ShowTooltip[]    "WeightPercentageTooltips"
+    0x0070  UIButtonImage    "StackButton"
+    0x0078  UIButtonImage    "SortButton"
+    0x0080  UnityEngine.GameObject  "SortIconsParent"
+    0x0088  UILabel          "SortButtonLabelMobile"
+    0x0090  ComponentField<ShowTooltip>  "SortButtonTooltip"
+    0x0098  UnityEngine.GameObject  "PlayStatsViewHook"
+
+  -- AlbionGui.CharacterGui.SpellSelectionGamepadView --
+    0x0018  bgi              "a"
+    0x0020  UIObjectListBuilder  "ListBuilder"
+    0x0028  UIWidget         "BackgroundWidget"
+    0x0030  AlbionGui.CharacterGui.SwitchableSpellSlotEntry  "TargetSlot"
+    0x0038  UIPanel          "SpellsTabViewPanel"
+    0x0040  System.Single    "ReducedAlpha"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.SpellsTabView --
+    0x0020  AlbionGui.CharacterGui.SpellSelectionGamepadView  "<SpellSelectionGamepadView>k__BackingField"
+    0x0028  UIObjectListBuilder  "EntryListBuilder"
+    0x0030  UIItemStorage    "EquipmentStorage"
+    0x0038  UIScrollView     "ScrollView"
+    0x0040  UIEquipmentSlot[]  "a"
+    0x0048  System.Boolean   "b"
+    0x0050  Albion.Common.GameData.EquipmentSlot[]  "c"
+    0x0018  CharacterInfoGui  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.SpellTabEntry --
+    0x0018  UIEquipmentSlot  "<UIEquipmentSlot>k__BackingField"
+    0x0020  UIObjectListBuilder  "SpellListBuilder"
+    0x0028  UISprite         "PaperSlotIcon"
+    0x0030  UISprite         "RowHighlight"
+    0x0038  UIRect           "<AvoidanceAreaForSlots>k__BackingField"
+    0x0040  AlbionGui.CharacterGui.SwitchableSpellSlotEntry  "EmptySlotEntry"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.StatsTabView --
+    0x0020  CharacterDetailsGui  "CharacterDetailsGui"
+    0x0028  UIScrollView     "ScrollView"
+    0x0018  CharacterInfoGui  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterGui.SwitchableSpellSlotEntry --
+    0x0018  System.Int32     "a"
+    0x001c  System.Int32     "b"
+    0x0020  System.Boolean   "c"
+    0x0028  dmw              "d"
+    0x0030  Albion.Common.GameData.CharacterSpellSlot  "e"
+    0x0038  bgi              "f"
+    0x0040  UIKeyNavigation[]  "<UIKeyNavigation>k__BackingField"
+    0x0048  AlbionGui.NGuiEventForwarder[]  "<NGuiEventForwarder>k__BackingField"
+    0x0050  System.Boolean   "g"
+    0x0058  UIRect           "h"
+    0x0060  SpellEntry       "SpellEntry"
+    0x0068  dn9              "i"
+    0x0070  UnityEngine.GameObject[]  "LeftOrnaments"
+    0x0078  UnityEngine.GameObject[]  "RightOrnaments"
+    0x0080  UnityEngine.GameObject  "ArrowOrnament"
+    0x0088  UnityEngine.GameObject  "Carving"
+
+  -- AlbionGui.CharacterCustomization.Category.AccessoriesCharacterCustomizeCategoryView --
+    0x0018  System.Action<bzx>  "CustomizationClientChanged"
+    0x0020  System.Boolean   "ShowLocked"
+    0x0028  CharacterCustomization.SubCategory.CharacterCustomizeSubCategoryView[]  "SubCategoryViews"
+    0x0030  cle              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.Category.CharacterCustomizeCategoryView --
+    0x0018  System.Action<bzx>  "CustomizationClientChanged"
+    0x0020  System.Boolean   "ShowLocked"
+    0x0028  CharacterCustomization.SubCategory.CharacterCustomizeSubCategoryView[]  "SubCategoryViews"
+    0x0030  cle              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.Category.BodyCharacterCustomizeCategoryView --
+    0x0018  System.Action<bzx>  "CustomizationClientChanged"
+    0x0020  System.Boolean   "ShowLocked"
+    0x0028  CharacterCustomization.SubCategory.CharacterCustomizeSubCategoryView[]  "SubCategoryViews"
+    0x0030  cle              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.Category.HairCharacterCustomizeCategoryView --
+    0x0018  System.Action<bzx>  "CustomizationClientChanged"
+    0x0020  System.Boolean   "ShowLocked"
+    0x0028  CharacterCustomization.SubCategory.CharacterCustomizeSubCategoryView[]  "SubCategoryViews"
+    0x0030  cle              "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.Button.CharacterCustomizeButton`1 --
+    0x0000  System.Action<T>  "OnSelect"
+    0x0000  UIWidget         "Widget"
+    0x0000  UISprite         "LockedView"
+    0x0000  System.Boolean   "a"
+    0x0000  T                "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.Button.ColorCharacterCustomizeButton --
+    0x0040  UISprite         "ColorSprite"
+    0x0048  UnityEngine.GameObject  "SelectedView"
+    0x0050  System.String    "a"
+    0x0058  System.Int32     "b"
+    0x0018  System.Action<bzv.a>  "OnSelect"
+    0x0020  UIWidget         "Widget"
+    0x0028  UISprite         "LockedView"
+    0x0030  System.Boolean   "a"
+    0x0038  bzv.a            "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- AlbionGui.CharacterCustomization.Button.MeshCharacterCustomizeButton --
+    0x0040  UnityEngine.GameObject  "SelectedView"
+    0x0048  UISprite         "Sprite"
+    0x0050  UISprite         "Background"
+    0x0058  UnityEngine.Color  "DefaultBackgroundStartColor"
+    0x0068  UnityEngine.Color  "DefaultBackgroundEndColor"
+    0x0078  UnityEngine.Color  "SelectedBackgroundStartColor"
+    0x0088  UnityEngine.Color  "SelectedBackgroundEndColor"
+    0x0098  System.String    "a"
+    0x0018  System.Action<bzx.c>  "OnSelect"
+    0x0020  UIWidget         "Widget"
+    0x0028  UISprite         "LockedView"
+    0x0030  System.Boolean   "a"
+    0x0038  bzx.c            "b"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+
+  -- Assets.Scripts.GUI.Game.OtherGui.PaySilverDetailGui --
+    0x0080  UILabel          "TitleLabel"
+    0x0088  UILabel          "DescriptionLabel"
+    0x0090  UnityEngine.Color  "NormalTextColor"
+    0x00a0  UnityEngine.Color  "NegativeTextColor"
+    0x00b0  UnityEngine.Color  "PositiveTextColor"
+    0x00c0  UnityEngine.GameObject  "BaseCostDisplay"
+    0x00c8  UILabel          "BaseCostValueLabel"
+    0x00d0  UnityEngine.GameObject  "UsageFeeDisplay"
+    0x00d8  UILabel          "UsageFeeValueLabel"
+    0x00e0  UnityEngine.GameObject  "DiscountDisplay"
+    0x00e8  UILabel          "GlobalDiscountValueLabel"
+    0x00f0  UILabel          "TotalCostValueLabel"
+    0x00f8  UILabel          "AccountDesc"
+    0x0100  UnityEngine.GameObject  "DontShowAgainModule"
+    0x0108  UIToggle         "DontShowAgainToggle"
+    0x0110  CraftingCalculationsView  "CraftingCalculationsView"
+
+  -- Assets.Scripts.GUI.Game.OtherGui.PaySilverGoldGui --
+    0x0028  UILabel          "AmountLabel"
+    0x0030  UILabel          "MessageLabel"
+    0x0038  UITexture        "IconTexture"
+    0x0040  UnityEngine.GameObject  "SilverIcon"
+    0x0048  UnityEngine.GameObject  "GoldIcon"
+    0x0050  AnimateOpenWindow  "AnimateOpenWindow"
+    0x0058  System.Action    "g"
+    0x0060  System.Action    "h"
+    0x0068  System.Action    "i"
+    0x0070  a5z              "j"
+    0x0078  System.Boolean   "k"
+    0x007c  ed.v             "l"
+    0x0000  dkb              "Relationship"
+    0x0008  gke              "AttributePreprocessor"
+    0x0010  System.Action<System.Type>  "AfterShowEvent"
+    0x0018  GuiScalerMobileBase  "a"
+
+  -- Assets.Scripts.SimulationObjectViews.SimulationObjects.WorldObjects.MovingObjects.PlayerCharacter.VisualRepresentation.PlayerDummyAnimationSource --
+    0x0018  gmz              "PlayerViewCompositionSource"
+    0x0020  gm1              "ViewComposition"
+    0x0028  Assets.Scripts.SimulationObjectViews.SimulationObjects.WorldObjects.MovingObjects.PlayerCharacter.VisualRepresentation.PlayerDummyAnimationSource.a  "a"
+    0x0030  Albion.Common.Time.GameTimeStamp  "b"
+    0x0038  bzy              "c"
+    0x0040  System.Int32     "d"
+    0x0000  System.Collections.Generic.List<a23.b>  "e"
+    0x0044  System.Single    "f"
+    0x0048  System.Boolean   "g"
+    0x004c  UnityEngine.Quaternion  "h"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneEnvironments --
+    0x0010  System.Int32     "value__"
+    0x0000  Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneEnvironments  "None"
+    0x0000  Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneEnvironments  "Default"
+    0x0000  Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneEnvironments  "Tutorial"
+    0x0000  System.Char[]    "enumSeperatorCharArray"
+    0x0000  System.String    "enumSeperator"
+
+  -- Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneSwitcher --
+    0x0018  UnityEngine.GameObject  "pCam"
+    0x0020  VisualStateController  "pCtrl"
+    0x0028  Assets.Scripts.GameObjects.Misc.CharacterSelectionSceneEnvironments  "a"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- Assets.Scripts.GameObjects.Misc.LocalQuestArea --
+    0x0018  System.String    "QuestId"
+    0x0020  System.Single    "Radius"
+    0x0024  System.Boolean   "AdjustToGroundHeight"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+
+  -- Assets.Scripts.Global.AlbionSequence.AlbionSequencePlayer --
+    0x0000  System.String    "INIT_SEQUENCE_FILE"
+    0x0000  System.String    "CUSTOM_SEQUENCE_FOLDER"
+    0x0000  Assets.Scripts.Global.AlbionSequence.AlbionSequencePlayer  "a"
+    0x0008  System.Char[]    "b"
+    0x0018  System.Collections.Generic.List<gp6>  "c"
+    0x0020  System.String    "CustomDebugCommand"
+    0x0010  System.IntPtr    "m_CachedPtr"
+    0x0000  System.Int32     "OffsetOfInstanceIDInCPlusPlusObject"
+    0x0000  System.String    "objectIsNullMessage"
+    0x0000  System.String    "cloneDestroyedMessage"
+TypeError: not a function
+    at <anonymous> (/home/stas/AOR_core/Frida/inspect_hero_binding_v2.js:114)
+    at perform (/usr/local/lib/node_modules/frida-il2cpp-bridge/dist/index.js:1399)
+[Local::PID::37784 ]-> 31271
+31271
+[Local::PID::37784 ]-> 
+Thank you for using Frida!

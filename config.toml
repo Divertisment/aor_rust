@@ -1,0 +1,17 @@
+[game]
+process_name = "Albion-Online"
+poll_interval_secs = 5
+
+[server]
+relay_port = 4445
+status_port = 4447
+command_port = 4446
+sync_port = 4444
+game_udp_port = 5056
+
+[kernel]
+module_path = "/home/stas/AOR_core/aor_mem.ko"
+
+[scanner]
+max_entities = 200
+debug = false

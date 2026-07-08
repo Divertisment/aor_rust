@@ -1,0 +1,182 @@
+     ____
+    / _  |   Frida 17.11.0 - A world-class dynamic instrumentation toolkit
+   | (_| |
+    > _  |   Commands:
+   /_/ |_|       help      -> Displays the help system
+   . . . .       object?   -> Display information about 'object'
+   . . . .       exit/quit -> Exit
+   . . . .
+   . . . .   More info at https://frida.re/docs/home/
+   . . . .
+   . . . .   Connected to Local System (id=local)
+Attaching...
+
+=== DisplayCharacterNameWorldObjectAnchoredGui ===
+  -- depth=0 DisplayCharacterNameWorldObjectAnchoredGui size=80 --
+     0x0028  WorldObjectView       "a"
+     0x0030  cck                   "b"
+     0x0038  cck                   "c"
+     0x0040  cck                   "d"
+     0x0048  System.Boolean        "e"
+  -- depth=1 DisplayWorldObjectAnchoredGui size=40 --
+     0x0018  System.String         "PrefabToUse"
+     0x0020  WorldObjectAnchoredGui  "AnchoredGui"
+  -- depth=2 UnityEngine.MonoBehaviour size=24 --
+  -- depth=3 UnityEngine.Behaviour size=24 --
+  -- depth=4 UnityEngine.Component size=24 --
+  -- depth=5 UnityEngine.Object size=24 --
+     0x0010  System.IntPtr         "m_CachedPtr"
+     0x0000  System.Int32          "OffsetOfInstanceIDInCPlusPlusObject"
+     0x0000  System.String         "objectIsNullMessage"
+     0x0000  System.String         "cloneDestroyedMessage"
+  -- depth=6 System.Object size=16 --
+
+=== LinkedCharacterNameLabel ===
+  -- depth=0 LinkedCharacterNameLabel size=176 --
+     0x0018  UnityEngine.Color     "a"
+     0x0028  UnityEngine.Color     "b"
+     0x0038  LinkedCharacterNameLabel.a  "HoverColor"
+     0x003c  UnityEngine.Color     "CustomHoverColor"
+     0x004c  System.Int32          "HoverPadding"
+     0x0050  UISlicedMirrorSprite  "BackgroundSprite"
+     0x0058  UIButtonColor         "BackgroundFade"
+     0x0060  UIButtonColor         "TextFade"
+     0x0068  System.String         "<Prefix>k__BackingField"
+     0x0070  UILabel               "Label"
+     0x0078  UnityEngine.BoxCollider  "Collider"
+     0x0080  UIKeyNavigation       "Navigation"
+     0x0088  System.Boolean        "Clickable"
+     0x0090  System.String         "c"
+     0x0098  System.String         "d"
+     0x00a0  System.String         "e"
+     0x00a8  System.Boolean        "f"
+  -- depth=1 UnityEngine.MonoBehaviour size=24 --
+  -- depth=2 UnityEngine.Behaviour size=24 --
+  -- depth=3 UnityEngine.Component size=24 --
+  -- depth=4 UnityEngine.Object size=24 --
+     0x0010  System.IntPtr         "m_CachedPtr"
+     0x0000  System.Int32          "OffsetOfInstanceIDInCPlusPlusObject"
+     0x0000  System.String         "objectIsNullMessage"
+     0x0000  System.String         "cloneDestroyedMessage"
+  -- depth=5 System.Object size=16 --
+
+=== PlayerCharacterView ===
+  -- depth=0 PlayerCharacterView size=656 --
+     0x0000  System.Boolean        "c"
+     0x01b0  UnityEngine.GameObject  "PlaceHolderGameObject"
+     0x01b8  UnityEngine.GameObject  "VisibilityEnforcerGameObject"
+     0x01c0  UnityEngine.GameObject  "DefaultClickableTrigger"
+     0x01c8  System.Boolean        "d"
+     0x01c9  System.Boolean        "e"
+     0x01d0  bk                    "EquipmentChanged"
+     0x01d8  System.Int32          "f"
+     0x01dc  System.Int32          "g"
+     0x01e0  System.Boolean        "h"
+     0x01e4  System.Int32          "i"
+     0x01e8  System.Int32          "j"
+     0x01ec  System.Int32          "k"
+     0x01f0  c2                    "l"
+     0x01f8  c2                    "m"
+     0x0200  WwiseDynamicGameObj   "n"
+     0x0208  bbs[]                 "o"
+     0x0210  cck                   "p"
+     0x0218  cck                   "q"
+     0x0220  cck                   "r"
+     0x0228  cck                   "s"
+     0x0230  cck                   "t"
+     0x0238  cck                   "u"
+     0x0240  cck                   "v"
+     0x0248  cck                   "w"
+     0x0250  cck                   "x"
+     0x0258  cck                   "y"
+     0x0260  cck                   "z"
+     0x0268  WorldObjectDebugGui   "aa"
+     0x0270  Albion.Common.Time.GameTimeStamp  "ab"
+     0x0278  dxx                   "ac"
+     0x0280  FishingLine           "pFishingLine"
+     0x0008  System.Collections.Generic.List<bbs>  "ad"
+     0x0288  System.Single         "ae"
+     0x0010  System.String         "af"
+  -- depth=1 FightingObjectView size=432 --
+     0x0000  System.Boolean        "DisableActionDisplay"
+     0x003c  System.Int32          "a"
+     0x0040  Albion.Common.Time.GameTimeStamp  "b"
+     0x0048  System.Collections.Generic.Queue<FightingObjectView.a>  "c"
+     0x0050  System.Collections.Generic.Dictionary<System.String,Albion.Common.Time.GameTimeStamp>  "d"
+     0x0058  System.Collections.Generic.List<System.String>  "e"
+     0x0000  System.Single         "f"
+     0x0060  Albion.Common.LandScape.EffectMaterial  "curGroundMaterial"
+     0x0068  Albion.Common.Time.GameTimeStamp  "g"
+     0x0070  Albion.Common.Time.GameTimeStamp  "h"
+     0x0078  bbe                   "i"
+     0x0004  System.UInt32         "j"
+     0x0000  System.UInt32         "k"
+     0x0080  System.UInt32         "l"
+     0x0088  Albion.Common.Time.GameTimeStamp  "m"
+     0x0090  Albion.Common.Time.GameTimeStamp  "n"
+     0x0098  System.Int64          "o"
+     0x00a0  UnityEngine.Transform  "p"
+     0x00a8  System.Single         "q"
+     0x00b0  Albion.Common.Time.GameTimeStamp  "r"
+     0x00b8  Albion.Common.Time.GameTimeStamp  "s"
+     0x00c0  Albion.Common.Time.GameTimeStamp  "t"
+     0x00c8  Albion.Common.Time.GameTimeStamp  "u"
+     0x00d0  Albion.Common.Time.GameTimeStamp  "v"
+     0x00d8  bf5                   "lastSpellCasted"
+     0x00e0  System.String         "lastCastAnimation"
+     0x00e8  Albion.Common.Time.GameTimeStamp  "w"
+     0x00f0  Albion.Common.Math.Vector2  "x"
+     0x00f8  System.Single         "y"
+     0x00fc  UnityEngine.RaycastHit  "lastRayHit"
+     0x0128  System.Boolean        "z"
+     0x0129  System.Boolean        "aa"
+     0x012c  UnityEngine.Quaternion  "ab"
+     0x0140  Albion.Common.Time.GameTimeStamp  "ac"
+     0x0148  System.Single         "ad"
+     0x0000  System.Int32          "ae"
+     0x0008  c2                    "af"
+     0x0150  Albion.Common.Time.GameTimeStamp  "ag"
+     0x0158  UnityEngine.Vector3[]  "ah"
+     0x0160  System.Single[]       "ai"
+     0x0168  System.Int32          "aj"
+     0x016c  System.Single         "ak"
+     0x0170  System.Single         "al"
+     0x0174  System.Int32          "am"
+     0x0178  System.Single         "an"
+     0x0180  WorldObjectDebugGui   "ao"
+     0x0188  Assets.Scripts.GameObjects.Misc.Visibility.OnScreenVisibilityTracker  "pOnScreenVisibilityTracker"
+     0x0190  dsy                   "ap"
+     0x0198  System.Collections.Generic.Dictionary<System.Int32,Albion.Common.Time.GameTimeStamp>  "aq"
+     0x0010  c2                    "NewEffectMinTime"
+     0x0018  c2                    "TimeTextLocked"
+     0x01a0  gmy                   "ar"
+     0x0020  System.Collections.Generic.List<bfa>  "as"
+     0x0028  UnityEngine.Vector3   "at"
+     0x01a8  cfk.SpellHideAttributes  "au"
+     0x01a9  System.Boolean        "av"
+  -- depth=2 MovingObjectView size=64 --
+  -- depth=3 WorldObjectView size=64 --
+     0x0000  System.Int32          "DefaultClickPriority"
+     0x0000  System.Int32          "MinClickPriority"
+     0x0000  System.Int32          "MaxClickPriority"
+     0x0028  System.Collections.Generic.List<dsv>  "c"
+     0x0030  System.Collections.Generic.List<dsv>  "d"
+     0x0038  System.Boolean        "e"
+  -- depth=4 SimulationObjectView size=40 --
+     0x0018  cfm                   "a"
+     0x0020  UnityEngine.Transform  "b"
+  -- depth=5 UnityEngine.MonoBehaviour size=24 --
+  -- depth=6 UnityEngine.Behaviour size=24 --
+  -- depth=7 UnityEngine.Component size=24 --
+  -- depth=8 UnityEngine.Object size=24 --
+     0x0010  System.IntPtr         "m_CachedPtr"
+     0x0000  System.Int32          "OffsetOfInstanceIDInCPlusPlusObject"
+     0x0000  System.String         "objectIsNullMessage"
+     0x0000  System.String         "cloneDestroyedMessage"
+  -- depth=9 System.Object size=16 --
+
+[*] === done ===
+[Local::PID::37784 ]-> 31271
+31271
+[Local::PID::37784 ]-> 
+Thank you for using Frida!

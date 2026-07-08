@@ -1,0 +1,6 @@
+=== AOR Scanner (C#) - Heap Scan ===
+[CFG] Process: Albion-Online
+[CFG] Poll interval: 5s
+
+[*] Will search for player name: "KpAcuBa"
+[*] Found player name string at 0x79b1e5c159c0 (chars at 0x79b1e5c159d4)
