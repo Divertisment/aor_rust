@@ -126,6 +126,21 @@ Il2Cpp.perform(function () {
     // 5000+ никогда не будет найдена.
     var lastGOcursor = 0;
 
+    // FIX(R10): typed-arg helper — bridge v0.13.1 native static methods с typeof(Type)
+    // ожидают System.Type managed OBJECT, не Il2CppClass struct pointer. Passing
+    // Il2CppClass wrapper dereferences wrong → access violation @ 0x132 (see log).
+    // .type.object → .typeObject fallback chain. Если оба null — caller disable.
+    function __typedArg(cls) {
+        var t = safe(function(){ return cls && cls.type && cls.type.object; }, null);
+        return t || safe(function(){ return cls && cls.typeObject; }, null);
+    }
+    // FIX(R10): once-only-disable flags. После первого THREW на findAllOfType /
+    // findObjectsOfType — methods permanently unsed (AV-петля каждые 25 тиков).
+    var findAllOfTypeBroken = false;
+    var findObjectsOfTypeBroken = false;
+    var __findAllOfTypeWarned = false;
+    var __findObjectsOfTypeWarned = false;
+
     var tickInterval = setInterval(function () {
         pollTickNum++;
         try {
@@ -181,13 +196,14 @@ Il2Cpp.perform(function () {
                     } catch (e) {}
                 }
             }
-            // FIX: 4й fallback — Resources.FindObjectsOfTypeAll(typeof(Camera)). Возвращает
-            // ВСЕ камеры, включая inactive / dont-save. Вызывается когда даже allCameras пуст.
-            // Для STATIC метода bridge v0.13.1 требует invoke без leading null — иначе ошибка
-            // "needs 1 parameter(s), not 2".
-            if (!cam && findAllOfType) {
+            if (!cam && findAllOfType && !findAllOfTypeBroken) {
                 try {
-                    var arr2 = findAllOfType.invoke(camClass);
+                    // FIX(R10-B6): if __typedArg() returned null, bridge would throw
+                    // a confusing 'access violation @ 0x132'. Pre-empt it so catch
+                    // logs a clean 'no .type.object/.typeObject' diagnostic instead.
+                    var _typedCam = __typedArg(camClass);
+                    if (!_typedCam) throw new Error('bridge has no .type.object/.typeObject');
+                    var arr2 = findAllOfType.invoke(_typedCam);
                     if (!arr2) {
                         if (pollTickNum % 25 === 1) console.log('[!] tick#' + pollTickNum + ': FindObjectsOfTypeAll returned null (method exists but invocation failed)');
                     } else if (arr2.length > 0) {
@@ -197,18 +213,26 @@ Il2Cpp.perform(function () {
                         console.log('[*] tick#' + pollTickNum + ': Resources.FindObjectsOfTypeAll returned EMPTY (active+inactive+editor cameras all absent)');
                     }
                 } catch (e) {
-                    if (pollTickNum % 25 === 1) console.log('[!] tick#' + pollTickNum + ': FindObjectsOfTypeAll.invoke THREW: ' + e.message);
+                    // FIX(R10): once-only disable — не повторять AV-попытку
+                    findAllOfTypeBroken = true;
+                    if (__findAllOfTypeWarned) {/* stay silent */} else {
+                        __findAllOfTypeWarned = true;
+                        console.log('[!] tick#' + pollTickNum + ': FindObjectsOfTypeAll.invoke THREW (' + e.message + ') — permanently disabled to halt AV-loop');
+                    }
                 }
             }
             // FIX: 5й fallback — Object.FindObjectsOfType(GameObject) → для каждого GO дёрнуть
             // GetComponent(typeof(Camera)). Запускаем редко (на tick%25==2) чтобы не зависнуть.
             // Это единственный способ поймать камеру прицепленную к донтсев-объекту в сцене
             // без активной main-камеры (например CinemachineVCamera с Camera output).
-            if (!cam && findObjectsOfType && getComponentMethod && pollTickNum % 25 === 2) {
+            if (!cam && findObjectsOfType && getComponentMethod && !findObjectsOfTypeBroken && pollTickNum % 25 === 2) {
                 try {
-                    // FIX: Object.FindObjectsOfType это STATIC метод — bridge v0.13.1 требует
-                    // invoke без leading null, иначе 'needs 1 parameter(s), not 2'.
-                    var gos = findObjectsOfType.invoke(goClass);
+                    // FIX(R10-B6+B5): typedArg helper for typeof(Type). Old `goClass`
+                    // direct-call caused AV @ 0x132 spam; behind the scenes bridge
+                    // needed a managed System.Type object, not Il2CppClass struct.
+                    var _typedGo = __typedArg(goClass);
+                    if (!_typedGo) throw new Error('bridge has no .type.object/.typeObject');
+                    var gos = findObjectsOfType.invoke(_typedGo);
                     if (gos && gos.length > 0) {
                         var checked = 0, found = 0;
                         // FIX: cap to avoid pause on busy scenes with thousands of GOs.
@@ -241,7 +265,12 @@ Il2Cpp.perform(function () {
                         console.log('[*] tick#' + pollTickNum + ': Object.FindObjectsOfType(GameObject) returned EMPTY');
                     }
                 } catch (e) {
-                    console.log('[!] tick#' + pollTickNum + ': FindObjectsOfType(GameObject) THREW: ' + e.message);
+                    // FIX(R10): once-only disable
+                    findObjectsOfTypeBroken = true;
+                    if (__findObjectsOfTypeWarned) {/* stay silent */} else {
+                        __findObjectsOfTypeWarned = true;
+                        console.log('[!] tick#' + pollTickNum + ': FindObjectsOfType(GameObject) THREW (' + e.message + ') — permanently disabled to halt AV-loop');
+                    }
                 }
             }
             // FIX: 6й ULTIMATE diagnostic на tick#100 — если ничего не нашли, узнаём механизм:
@@ -304,13 +333,13 @@ Il2Cpp.perform(function () {
                         if (arrChk && arrChk.length > 0 && arrChk.get(0) === cam) bindPath = 'Camera.allCameras[0]';
                     } catch(e){}
                 }
-                if (bindPath === 'unknown' && findAllOfType) {
+                if (bindPath === 'unknown' && findAllOfType && !findAllOfTypeBroken) {
                     try {
-                        var fArrChk = findAllOfType.invoke(camClass);
+                        var fArrChk = findAllOfType.invoke(__typedArg(camClass));
                         if (fArrChk && fArrChk.length > 0 && fArrChk.get(0) === cam) bindPath = 'Resources.FindObjectsOfTypeAll';
                     } catch(e){}
                 }
-                if (bindPath === 'unknown' && findObjectsOfType && getComponentMethod) bindPath = 'Object.FindObjectsOfType(GameObject)→GetComponent';
+                if (bindPath === 'unknown' && findObjectsOfType && getComponentMethod && !findObjectsOfTypeBroken) bindPath = 'Object.FindObjectsOfType(GameObject)→GetComponent';
                 lastBindPath = bindPath;
                 console.log('[*] tick#' + pollTickNum + ': CAMERA BOUND via "' + bindPath + '" — latched for subsequent ticks (was ' + (pollTickNum - 1) + ' ticks to find)');
             }
