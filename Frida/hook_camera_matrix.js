@@ -112,6 +112,10 @@ Il2Cpp.perform(function () {
                    || safe(function(){ return coreAsm.image.class('UnityEngine.GameObject'); }, null);
     var findObjectsOfType = safe(function(){ return objectClass ? objectClass.method('FindObjectsOfType', 1) : null; }, null);
     var getComponentMethod = safe(function(){ return goClass ? goClass.method('GetComponent', 1) : null; }, null);
+    var findGOWithTag = safe(function(){ return goClass ? goClass.method('FindGameObjectsWithTag', 1) : null; }, null);
+    var latchedCam = null;
+    var lastBindTick = 0;
+    var lastBindPath = 'unset';
     var widthProp = safe(function(){ return camClass.property('pixelWidth'); }, null);
     var heightProp = safe(function(){ return camClass.property('pixelHeight'); }, null);
     var transformProp = safe(function(){ return camClass.property('transform'); }, null);
@@ -126,6 +130,9 @@ Il2Cpp.perform(function () {
         pollTickNum++;
         try {
             var cam = null;
+            if (latchedCam && latchedCam.handle && !(latchedCam.handle.isNull && latchedCam.handle.isNull())) {
+                cam = latchedCam;
+            }
             // Сначала method('get_main').invoke(null) — он точно работает для статиков
             if (getMain) {
                 try { cam = getMain.invoke(null); } catch (e) {}
@@ -146,6 +153,33 @@ Il2Cpp.perform(function () {
                         console.log('[*] tick#1: Camera.allCameras() returned empty array (likely loading screen or zero cameras)');
                     }
                 } catch (e) {}
+            }
+            if (!cam && findGOWithTag && getComponentMethod) {
+                var tagStr = null;
+                try { tagStr = new Il2Cpp.String('MainCamera'); }
+                catch (e1) {
+                    try { tagStr = Memory.allocUtf8String('MainCamera'); }
+                    catch (e2) {}
+                }
+                if (tagStr) {
+                    try {
+                        var taggedArr = findGOWithTag.invoke(tagStr);
+                        if (taggedArr && taggedArr.length > 0) {
+                            var taggedGO = safe(function(){ return taggedArr.get(0); }, null);
+                            if (taggedGO) {
+                                var taggedComp = safe(function(){ return getComponentMethod.invoke(taggedGO, camClass); }, null);
+                                if (taggedComp && taggedComp.handle && !(taggedComp.handle.isNull && taggedComp.handle.isNull())) {
+                                    cam = taggedComp;
+                                    if (pollTickNum === 1 || lastBindPath !== 'tag-MainCamera') {
+                                        console.log('[*] tick#' + pollTickNum + ': using FindGameObjectsWithTag("MainCamera") fast-path (n=' + taggedArr.length + ')');
+                                    }
+                                }
+                            }
+                        } else if (pollTickNum === 1) {
+                            console.log('[*] tick#1: FindGameObjectsWithTag("MainCamera") returned empty (no GO has that tag in this scene)');
+                        }
+                    } catch (e) {}
+                }
             }
             // FIX: 4й fallback — Resources.FindObjectsOfTypeAll(typeof(Camera)). Возвращает
             // ВСЕ камеры, включая inactive / dont-save. Вызывается когда даже allCameras пуст.
@@ -231,6 +265,11 @@ Il2Cpp.perform(function () {
             // FIX: was followed by an IDENTICAL duplicate guard (lines ~114-117)
             // — unreachable dead code, deleted.
             if (!cam || !cam.handle || (cam.handle.isNull && cam.handle.isNull())) {
+                if (latchedCam) {
+                    console.log('[*] tick#' + pollTickNum + ': latchedCam handle became null (scene change/camera unload?) — clearing cache');
+                    latchedCam = null;
+                    lastBindPath = 'unset';
+                }
                 if (pollTickNum === 1) console.log('[!] Camera.main handle is null — main-камера ещё не готова; продолжу опрашивать');
                 if (pollTickNum % 25 === 0) console.log('[*] tick#' + pollTickNum + ' Camera.main still null');
                 return;
