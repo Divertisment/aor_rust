@@ -269,10 +269,50 @@ Il2Cpp.perform(function () {
                     console.log('[*] tick#' + pollTickNum + ': latchedCam handle became null (scene change/camera unload?) — clearing cache');
                     latchedCam = null;
                     lastBindPath = 'unset';
+                    lastBindTick = 0;
                 }
                 if (pollTickNum === 1) console.log('[!] Camera.main handle is null — main-камера ещё не готова; продолжу опрашивать');
                 if (pollTickNum % 25 === 0) console.log('[*] tick#' + pollTickNum + ' Camera.main still null');
                 return;
+            }
+
+            // FIX: bindPath detection (single-shot per fresh bind) — определяет какой
+            // fallback реально выдал текущую камеру. Cascade ORDER важен: rerun каждый
+            // доступный провайдер и сравнить === cam. Если cam === latchedCam — пропускаем
+            // (повторный тик, кэш уже valid) — экономим 0-5 bridge-call per tick.
+            if (cam !== latchedCam) {
+                latchedCam = cam;
+                lastBindTick = pollTickNum;
+                var bindPath = 'unknown';
+                if (cam && getMain) { try { if (getMain.invoke(null) === cam) bindPath = 'Camera.main (get_main)'; } catch(e){} }
+                if (bindPath === 'unknown' && mainProp) { try { if (mainProp.get(null) === cam) bindPath = 'Camera.main (.property)'; } catch(e){} }
+                if (bindPath === 'unknown' && findGOWithTag && getComponentMethod) {
+                    try {
+                        var taggedArrChk = findGOWithTag.invoke(new Il2Cpp.String('MainCamera'));
+                        if (taggedArrChk && taggedArrChk.length > 0) {
+                            var taggedGOChk = safe(function(){ return taggedArrChk.get(0); }, null);
+                            if (taggedGOChk) {
+                                var taggedCompChk = safe(function(){ return getComponentMethod.invoke(taggedGOChk, camClass); }, null);
+                                if (taggedCompChk && taggedCompChk.handle && taggedCompChk === cam) bindPath = 'tagged/findGOWithTag → GetComponent';
+                            }
+                        }
+                    } catch(e){}
+                }
+                if (bindPath === 'unknown' && getAllCameras) {
+                    try {
+                        var arrChk = getAllCameras.invoke(null);
+                        if (arrChk && arrChk.length > 0 && arrChk.get(0) === cam) bindPath = 'Camera.allCameras[0]';
+                    } catch(e){}
+                }
+                if (bindPath === 'unknown' && findAllOfType) {
+                    try {
+                        var fArrChk = findAllOfType.invoke(camClass);
+                        if (fArrChk && fArrChk.length > 0 && fArrChk.get(0) === cam) bindPath = 'Resources.FindObjectsOfTypeAll';
+                    } catch(e){}
+                }
+                if (bindPath === 'unknown' && findObjectsOfType && getComponentMethod) bindPath = 'Object.FindObjectsOfType(GameObject)→GetComponent';
+                lastBindPath = bindPath;
+                console.log('[*] tick#' + pollTickNum + ': CAMERA BOUND via "' + bindPath + '" — latched for subsequent ticks (was ' + (pollTickNum - 1) + ' ticks to find)');
             }
 
             // FIX: Matrix4x4 is a 64-byte value-type struct — frida-il2cpp-bridge
