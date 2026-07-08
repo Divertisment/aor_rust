@@ -15,13 +15,26 @@ import json
 import time
 import threading
 from datetime import datetime
-from flask import Flask, render_template_string, jsonify, redirect, send_file
+from flask import Flask, render_template_string, jsonify, redirect, send_file, request
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 
 LOG_DIR = "/tmp/aor_panel_logs"
 os.makedirs(LOG_DIR, exist_ok=True)
+
+# R29: live overlay auto-refresh — in-process import of overlay_entities
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
+try:
+    from overlay_entities import render_overlay as _ov_render, load_entities as _ov_load
+    _AUTO_OVERLAY_AVAILABLE = True
+    _AUTO_OVERLAY_IMPORT_ERR = ""
+except Exception as _ov_imp_err:
+    _ov_render = None
+    _ov_load = None
+    _AUTO_OVERLAY_AVAILABLE = False
+    _AUTO_OVERLAY_IMPORT_ERR = str(_ov_imp_err)
+    print(f"[web_panel] overlay_entities import failed: {_ov_imp_err}", file=sys.stderr)
 
 # ─── BUILD_VERSION — auto-bumped при каждом запуске Python-модуля.
 # Используется как маркер: если версия в браузере меняется → рестарт произошёл.
@@ -305,6 +318,20 @@ HTML = """<!DOCTYPE html>
         background: #1a1a2a;
         border-left: 3px solid #666;
     }
+    .auto-pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 9pt;
+        background: #2a2a2a;
+        color: #888;
+        margin-left: 8px;
+        letter-spacing: 0.3px;
+    }
+    .auto-pill.active   { background: #0d2a0d; color: var(--ok); }
+    .auto-pill.disabled { background: #3a1a1a; color: var(--err); }
+    .auto-pill.waiting  { background: #2a2a3a; color: var(--info); }
+    .auto-pill.error    { background: #3a1a1a; color: var(--err); }
 </style>
 </head>
 <body>
@@ -330,7 +357,22 @@ HTML = """<!DOCTYPE html>
     <button class="btn" onclick="reloadCards()" style="margin-left:12px; background:#2a2a00; color:#ffff00; border-color:#666600;">⟳ Cards</button>
 </div>
 
-<h2>🗺 Atlas preview <span style="font-size:8pt; color:#888;">(auto-refresh 5s)</span></h2>
+<h2>🛡️ AntyAFK <span style="font-size:8pt; color:#888;">(systemd service)</span>
+    <span id="antyafkStatus" class="status idle" style="font-size:8pt;">проверка...</span>
+    <button class="btn" onclick="toggleAntyAFK('start')"  id="antyafkStartBtn"  style="font-size:8pt; padding:2px 8px;">▶ Start</button>
+    <button class="btn kill" onclick="toggleAntyAFK('stop')" id="antyafkStopBtn" style="font-size:8pt; padding:2px 8px;" disabled>■ Stop</button>
+    <button class="btn" onclick="toggleAntyAFK('restart')" id="antyafkRestartBtn" style="font-size:8pt; padding:2px 8px; background:#1a1a3a; color:#888; border-color:#444;">↻</button>
+</h2>
+<div style="background:var(--card-bg); border:1px solid var(--border); border-left:3px solid var(--info); padding:12px 16px; margin-bottom:20px;">
+    <div style="display:flex; gap:20px; font-size:9pt; color:#aaa; flex-wrap:wrap;">
+        <span>PID: <code id="antyafkPid" style="color:var(--info);">--</code></span>
+        <span>Uptime: <code id="antyafkUptime" style="color:var(--info);">--</code></span>
+        <span>Last action: <code id="antyafkLastAction" style="color:#888;">--</code></span>
+    </div>
+    <pre class="output" id="antyafkLog" style="max-height:120px; font-size:8pt; margin-top:6px;">(лог загружается...)</pre>
+</div>
+
+<h2>🗺 Atlas preview <span style="font-size:8pt; color:#888;">(auto-refresh 5s)</span> <span id="autoOverlayStatus" class="auto-pill">⏳ init</span></h2>
 <div class="map-preview" id="mapPreview" style="background:var(--card-bg); border:1px solid var(--border); border-left:3px solid var(--info); padding:12px 16px; display:grid; grid-template-columns: 1fr 280px; gap:16px; align-items:start;">
     <div>
         <div id="mapTabs" style="margin-bottom:8px; display:flex; gap:6px; font-size:9.5pt;">
@@ -435,6 +477,40 @@ async function reloadCards() {
     } catch (e) {
         alert('reload error: ' + e);
     }
+}
+
+async function refreshAntyAFK() {
+    try {
+        const r = await fetch('/anti-afk');
+        const j = await r.json();
+        const statusEl = document.getElementById('antyafkStatus');
+        const pidEl = document.getElementById('antyafkPid');
+        const uptimeEl = document.getElementById('antyafkUptime');
+        const lastActionEl = document.getElementById('antyafkLastAction');
+        const logEl = document.getElementById('antyafkLog');
+        const startBtn = document.getElementById('antyafkStartBtn');
+        const stopBtn = document.getElementById('antyafkStopBtn');
+
+        const isActive = j.service === 'active';
+        statusEl.className = 'status ' + (isActive ? 'done' : 'killed');
+        statusEl.textContent = isActive ? '🟢 работает' : '🔴 остановлен';
+        pidEl.textContent = j.pid || '--';
+        uptimeEl.textContent = j.uptime_sec ? Math.floor(j.uptime_sec / 60) + 'm ' + (j.uptime_sec % 60) + 's' : '--';
+        lastActionEl.textContent = j.last_action || '--';
+        logEl.textContent = j.log_tail || '(пусто)';
+        startBtn.disabled = isActive;
+        stopBtn.disabled = !isActive;
+    } catch (e) {
+        document.getElementById('antyafkStatus').textContent = 'err: ' + e;
+    }
+}
+async function toggleAntyAFK(action) {
+    const btn = document.getElementById('antyafk' + action.charAt(0).toUpperCase() + action.slice(1) + 'Btn');
+    if (btn) btn.disabled = true;
+    try {
+        await fetch('/anti-afk/toggle?action=' + action, {method: 'POST'});
+    } catch (e) {}
+    setTimeout(refreshAntyAFK, 1500);
 }
 
     const activeJobs = {}; // key -> job_id
@@ -650,6 +726,47 @@ function onMapSelectChange(value) {
 }
 refreshMap();
 setInterval(refreshMap, 5000);
+
+refreshAntyAFK();
+setInterval(refreshAntyAFK, 5000);
+
+// R29: live overlay auto-refresh status (polls /overlay/auto)
+async function refreshAutoOverlay() {
+    try {
+        const r = await fetch('/overlay/auto');
+        const j = await r.json();
+        const el = document.getElementById('autoOverlayStatus');
+        if (!el) return;
+        el.className = 'auto-pill';
+        let label = '';
+        if (!j.enabled) {
+            label = '⏸ auto-refresh OFF';
+            el.classList.add('disabled');
+        } else if (!j.available) {
+            label = '❌ overlay_entities not importable';
+            el.classList.add('error');
+        } else if (j.status === 'waiting') {
+            label = '⏳ waiting for atlas + entities';
+            el.classList.add('waiting');
+        } else if (j.status === 'error') {
+            label = '❌ ' + (j.last_run_error || 'error').slice(0, 60);
+            el.classList.add('error');
+        } else if (j.status === 'running') {
+            label = '🔄 building...';
+            el.classList.add('active');
+        } else if (j.status === 'ok') {
+            const age = j.age_sec !== null ? (j.age_sec + 's ago') : 'never';
+            label = '🟢 ' + j.runs_count + ' runs, last ' + age;
+            el.classList.add('active');
+        } else {
+            label = '⏳ ' + j.status;
+        }
+        el.textContent = label;
+        el.title = JSON.stringify(j, null, 2);
+    } catch (e) { /* silent */ }
+}
+refreshAutoOverlay();
+setInterval(refreshAutoOverlay, 5000);
 
 // R29: user TODO persistence (localStorage, debounced 500ms)
 const TODO_KEY = 'aor_panel_user_todo';
@@ -1080,6 +1197,202 @@ def get_entities():
         "age_sec": int(max(0, time.time() - st.st_mtime)),
         "entities": compact,
     })
+
+
+# ─── R29: live overlay auto-refresh (background watcher + endpoints) ───
+AUTO_OVERLAY_STATE = {
+    "enabled": True,
+    "available": _AUTO_OVERLAY_AVAILABLE,
+    "import_error": _AUTO_OVERLAY_IMPORT_ERR,
+    "status": "init",          # init | waiting | running | ok | error
+    "last_run_at": 0.0,
+    "last_run_ok": False,
+    "last_run_error": "",
+    "runs_count": 0,
+    "last_entities_mtime": 0.0,
+    "last_atlas_name": "",
+}
+_AUTO_OVERLAY_LOCK = threading.Lock()
+_AUTO_OVERLAY_LAST_RUN = 0.0   # monotonic seconds of last run
+_AUTO_OVERLAY_DEBOUNCE = 5.0   # min seconds between runs
+_AUTO_OVERLAY_LOG = "/tmp/aor_overlay_auto.log"
+
+def _overlay_log(msg: str):
+    try:
+        with open(_AUTO_OVERLAY_LOG, "a", buffering=1) as f:
+            f.write(f"[{datetime.now().isoformat(timespec='seconds')}] {msg}\n")
+    except Exception:
+        pass
+
+def _find_latest_atlas() -> str:
+    """Latest aor_map_*.png that is NOT _overlay/_diff, or '' if none."""
+    cands = []
+    for p in _glob.glob(os.path.join(MAP_DIR, "aor_map_*.png")):
+        n = os.path.basename(p)
+        if n.endswith("_overlay.png") or n.endswith("_diff.png"):
+            continue
+        try:
+            cands.append((os.path.getmtime(p), p))
+        except OSError:
+            continue
+    if not cands:
+        return ""
+    cands.sort(reverse=True)
+    return cands[0][1]
+
+def _overlay_auto_watch():
+    """Background daemon thread: poll entities.json mtime → run render_overlay on change."""
+    while True:
+        try:
+            time.sleep(2.0)
+            with _AUTO_OVERLAY_LOCK:
+                if not AUTO_OVERLAY_STATE["enabled"]:
+                    continue
+            try:
+                mt = os.path.getmtime(ENTITIES_PATH)
+            except OSError:
+                with _AUTO_OVERLAY_LOCK:
+                    AUTO_OVERLAY_STATE["status"] = "waiting"
+                    AUTO_OVERLAY_STATE["last_entities_mtime"] = 0.0
+                continue
+            with _AUTO_OVERLAY_LOCK:
+                if mt == AUTO_OVERLAY_STATE["last_entities_mtime"]:
+                    continue
+            now = time.monotonic()
+            if (now - _AUTO_OVERLAY_LAST_RUN) < _AUTO_OVERLAY_DEBOUNCE:
+                continue
+            atlas = _find_latest_atlas()
+            if not atlas:
+                with _AUTO_OVERLAY_LOCK:
+                    AUTO_OVERLAY_STATE["status"] = "waiting"
+                continue
+            if not _AUTO_OVERLAY_AVAILABLE:
+                with _AUTO_OVERLAY_LOCK:
+                    AUTO_OVERLAY_STATE["status"] = "error"
+                    AUTO_OVERLAY_STATE["last_run_error"] = "overlay_entities not importable"
+                continue
+            with _AUTO_OVERLAY_LOCK:
+                AUTO_OVERLAY_STATE["status"] = "running"
+            ents = _ov_load(ENTITIES_PATH)
+            out_path = _ov_render(atlas, ents)
+            with _AUTO_OVERLAY_LOCK:
+                AUTO_OVERLAY_STATE["last_run_at"] = time.time()
+                AUTO_OVERLAY_STATE["last_run_ok"] = True
+                AUTO_OVERLAY_STATE["last_run_error"] = ""
+                AUTO_OVERLAY_STATE["runs_count"] += 1
+                AUTO_OVERLAY_STATE["last_entities_mtime"] = mt
+                AUTO_OVERLAY_STATE["last_atlas_name"] = os.path.basename(atlas)
+                AUTO_OVERLAY_STATE["status"] = "ok"
+            _AUTO_OVERLAY_LAST_RUN = time.monotonic()
+            _overlay_log(f"ok: {os.path.basename(atlas)} → {out_path} ({len(ents)} entities)")
+        except Exception as e:
+            with _AUTO_OVERLAY_LOCK:
+                AUTO_OVERLAY_STATE["status"] = "error"
+                AUTO_OVERLAY_STATE["last_run_ok"] = False
+                AUTO_OVERLAY_STATE["last_run_error"] = str(e)[:200]
+            _overlay_log(f"ERROR: {e}")
+            time.sleep(5.0)
+
+_watch_thread = threading.Thread(target=_overlay_auto_watch, daemon=True, name="overlay-auto")
+_watch_thread.start()
+_overlay_log(f"watcher started (available={_AUTO_OVERLAY_AVAILABLE}, debounce={_AUTO_OVERLAY_DEBOUNCE}s)")
+
+
+@app.route("/overlay/auto")
+def get_overlay_auto():
+    with _AUTO_OVERLAY_LOCK:
+        s = dict(AUTO_OVERLAY_STATE)
+    s["now"] = time.time()
+    if s["last_run_at"]:
+        s["age_sec"] = int(max(0, time.time() - s["last_run_at"]))
+    else:
+        s["age_sec"] = None
+    return jsonify(s)
+
+
+@app.route("/overlay/auto", methods=["POST"])
+def post_overlay_auto():
+    enabled_raw = (request.args.get("enabled") or "").lower()
+    if enabled_raw in ("true", "1", "yes", "on"):
+        new_state = True
+    elif enabled_raw in ("false", "0", "no", "off"):
+        new_state = False
+    else:
+        return jsonify({"error": "missing ?enabled=true|false"}), 400
+    with _AUTO_OVERLAY_LOCK:
+        AUTO_OVERLAY_STATE["enabled"] = new_state
+    _overlay_log(f"enabled={new_state} (toggled by POST)")
+    return jsonify({"ok": True, "enabled": new_state})
+
+
+# ─── anti-afk service status ────────────────────────────────────
+ANTI_AFK_LOG = os.path.expanduser("~/.local/share/anti_afk/anti_afk.log")
+
+@app.route("/anti-afk")
+def anti_afk_status():
+    state = {"service": "unknown", "pid": None, "uptime_sec": None, "last_action": None, "log_tail": ""}
+    try:
+        r = subprocess.run(
+            ["systemctl", "--user", "is-active", "anti-afk.service"],
+            capture_output=True, text=True, timeout=5
+        )
+        state["service"] = r.stdout.strip()
+    except Exception:
+        state["service"] = "error"
+    if state["service"] == "active":
+        try:
+            r = subprocess.run(
+                ["systemctl", "--user", "show", "--property", "MainPID", "--property", "ActiveEnterTimestamp", "anti-afk.service"],
+                capture_output=True, text=True, timeout=5
+            )
+            for line in r.stdout.strip().split("\n"):
+                if line.startswith("MainPID="):
+                    pid = line.split("=", 1)[1]
+                    state["pid"] = int(pid) if pid.isdigit() else None
+                elif line.startswith("ActiveEnterTimestamp="):
+                    ts = line.split("=", 1)[1]
+                    if ts:
+                        try:
+                            from datetime import datetime
+                            fmt = "%a %Y-%m-%d %H:%M:%S MSK"
+                            started = datetime.strptime(ts.rsplit(" ", 1)[0], fmt)
+                            state["uptime_sec"] = int((datetime.now() - started).total_seconds())
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    # последние строки лога
+    if os.path.isfile(ANTI_AFK_LOG):
+        try:
+            with open(ANTI_AFK_LOG, "r") as f:
+                lines = f.readlines()
+            state["log_tail"] = "".join(lines[-10:])
+            # last action line
+            for l in reversed(lines):
+                if "action" in l and "step" not in l:
+                    state["last_action"] = l.strip()
+                    break
+        except Exception:
+            pass
+    return jsonify(state)
+
+
+@app.route("/anti-afk/toggle", methods=["POST"])
+def anti_afk_toggle():
+    action = (request.args.get("action") or "").strip()
+    if action == "start":
+        r = subprocess.run(["systemctl", "--user", "start", "anti-afk.service"],
+                           capture_output=True, text=True, timeout=15)
+    elif action == "stop":
+        r = subprocess.run(["systemctl", "--user", "stop", "anti-afk.service"],
+                           capture_output=True, text=True, timeout=15)
+    elif action == "restart":
+        r = subprocess.run(["systemctl", "--user", "restart", "anti-afk.service"],
+                           capture_output=True, text=True, timeout=15)
+    else:
+        return jsonify({"error": "?action=start|stop|restart"}), 400
+    ok = r.returncode == 0
+    return jsonify({"ok": ok, "action": action, "stderr": r.stderr.strip() if r.stderr else ""})
 
 
 if __name__ == "__main__":
