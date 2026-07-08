@@ -8,12 +8,14 @@ web_panel.py — Flask web UI to launch Frida RE scripts against Albion-Online.
 Открыть:  http://localhost:7777
 """
 import os
+import sys
+import glob
 import subprocess
 import json
 import time
 import threading
 from datetime import datetime
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, redirect, send_file
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
@@ -34,96 +36,72 @@ JOBS = {}  # job_id -> {pid, frida_pid, status, log_file, started_at, key, name,
 #  - name (display)
 #  - description (one line)
 #  - script (path under /mnt/hgfs/D/AOR_core/)
-# Конкретные пошаговые действия игрока, отображаются под каждой карточкой
-# как список задач. Порядок выполнения = порядок карточек в панели.
-SCRIPTS = {
-    "gom_walk_all": {
-        "name": "Полный обход GOM (8087 узлов, дамп первых 30)",
-        "description": "Проходит по всем GameObject в GOM, для первых 30 валидных (m_InstanceID != 0) делает hexdump, пробует прочитать m_Name и m_Components. Используй чтобы увидеть как устроены объекты в памяти.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/frida_dump_all_gos.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: ничего не делай",
-            "В окне жди блоки \"[GO #N] id=...\"",
-            "Карточка зеленеет сама через 1.5 мин",
-        ],
-    },
-    "discovery_camera": {
-        "name": "🎰 C++ Discovery (Camera.main → offsets)",
-        "description": "Одноразовый поиск точных C++ offsets. Использует Camera.main как ground-truth (находит m_CachedPtr, GetInstanceID, native Cam). Сканирует native GameObject и сообщает точные смещения для m_InstanceID / m_Components buffer+stride / m_Name. Запусти первым после открытия сцены — чтобы GOM-poll и Rзм.обход GOM использовали правильные offsets.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/frida_discovery_camera.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: ничего не делай",
-            "В окне жди \"[*] m_InstanceID @ +0x...\"",
-            "Карточка зеленеет сама через 3 мин",
-        ],
-    },
-    "gom_poll_live": {
-        "name": "GOM-poll в реалтайме (поиск целей)",
-        "description": "Каждые 2 сек проходит GOM и ищет в m_Components признаки CollisionTester / CGA / a7h. Auto-discovery через Camera.main на старте; если ей не удалось — падает на fallback список offsets.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/frida_gom_poll.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: зажми ЛКМ",
-            "В игре: поводи камерой вокруг персонажа 5 секунд",
-            "В окне жди \"[*] tick#N walked ... GOs\"",
-            "Карточка зеленеет сама через 3 мин",
-        ],
-    },
-    "find_a7h_assembly": {
-        "name": "Найти a7h в любой сборке",
-        "description": "Сканирует все Il2Cpp-сборки + ставит хук на OnClusterLoaded, чтобы определить в какой сборке живёт a7h. Результат: Albion.Common.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/frida_find_a7h_assembly.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: ничего не делай",
-            "В окне жди \"[*] ★★★ a7h was LOCATED\"",
-            "Карточка зеленеет сама через 3 мин",
-        ],
-    },
-    "hook_collision": {
-        "name": "Хук a7h.k() — даунскейл 262 КБ",
-        "description": "Ставит хук на геттер byte[] у a7h. ⚠ На практике возвращает preview 262144 байт, а НЕ полный атлас 656100 — это превью, а сам массив ещё нужно найти.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/hook_a7h_collision.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: нажми W",
-            "В игре: иди вперёд 5 секунд",
-            "[!] class a7h not found — это ОК",
-            "Карточка зеленеет сама через 3 мин",
-        ],
-    },
-    "hook_map_render": {
-        "name": "Хук Texture2D.GetPixels32 (зум карты!)",
-        "description": "Запусти скрипт, потом ОТКРОЙ мировую карту (клавиша M) и крути колесо зума — хук сработает на текстуру карты. Фильтрует площади 656100 / 10 497 600. Дамп пишется в /tmp/aor_map_*.bin.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/hook_map_render.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: нажми M (открыть WorldMap)",
-            "В игре: колесо мыши ОТ СЕБЯ ×5 (зум IN)",
-            "В игре: колесо мыши НА СЕБЯ ×5 (зум OUT)",
-            "В игре: нажми M (закрыть)",
-            "Подожди 5 секунд",
-            "В игре: нажми M (снова открыть)",
-            "В игре: колесо ×5 в любую сторону",
-            "В окне жди ★ DUMPED 656100b.bin",
-            "Карточка зеленеет сама через 3 мин",
-        ],
-    },
-    "hook_camera_matrix": {
-        "name": "Хук матрицы камеры (world→screen, 12 чисел)",
-        "description": "Каждые 200мс опрашивает Camera.main и читает worldToCameraMatrix + projectionMatrix + position → /tmp/aor_camera_matrix.json (12 чисел под transform_point_3x4). Watchdog 180с.",
-        "script": "/mnt/hgfs/D/AOR_core/Frida/hook_camera_matrix.js",
-        "tasks": [
-            "Жми ▶ Launch",
-            "В игре: зажми ЛКМ",
-            "В игре: поводи камерой на персонажа",
-            "В окне жди tick#N camera=0x...",
-            "Карточка зеленеет сама через 3 мин",
-        ],
-    },
-}
+#  - tasks (list[str]) — пошаговые действия игрока, отображаются под каждой карточкой
+#  - doc  (str)        — длинное описание что это и зачем (для README, не в UI)
+#
+# R23 refactor: все карточки лежат в отдельной папке `web_panel_cards/` в виде
+# `<NNN>_<key>.json` файлов. Здесь — только loader + кеш. Каждая карточка имеет
+# `active: true|false` — выключенные НЕ рендерятся в UI. Чтобы показать
+# паркованную карточку, поменяй `active: false` → `active: true` в её JSON и
+# перезапусти web_panel. Полная документация: web_panel_cards/README.md.
+SCRIPTS_CARDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web_panel_cards")
+
+
+def _load_cards(folder: str = SCRIPTS_CARDS_DIR) -> dict:
+    """Прочитать все активные карточки из `folder/*.json` (один файл на карточку).
+
+    Каждый файл должен иметь поля: `key`, `active`, `index`, `name`, `description`,
+    `script`, `tasks[]`, `doc`. `active=false` карточки пропускаются. Возвращаемый
+    dict отсортирован по `index` (стартовая позиция в UI).
+    """
+    out: dict = {}
+    if not os.path.isdir(folder):
+        print(f"[web_panel] card folder not found: {folder}", file=sys.stderr)
+        return out
+    for path in sorted(glob.glob(os.path.join(folder, "*.json"))):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                card = json.load(f)
+        except (OSError, ValueError) as e:
+            print(f"[web_panel] failed to load card {path}: {e}", file=sys.stderr)
+            continue
+        if not isinstance(card, dict):
+            print(f"[web_panel] card {path} is not a JSON object", file=sys.stderr)
+            continue
+        if not card.get("active", False):
+            continue
+        key = card.get("key")
+        if not key or not isinstance(key, str):
+            print(f"[web_panel] card {path} missing/invalid 'key' field", file=sys.stderr)
+            continue
+        if key in out:
+            print(f"[web_panel] duplicate key {key!r} from {path}", file=sys.stderr)
+            continue
+        script = card.get("script", "")
+        if script and not os.path.isabs(script):
+            print(f"[web_panel] card {key}: script path is not absolute: {script}", file=sys.stderr)
+        tasks = card.get("tasks") or []
+        if not isinstance(tasks, list):
+            tasks = [str(tasks)]
+        out[key] = {
+            "name": str(card.get("name", key)),
+            "description": str(card.get("description", "")),
+            "script": str(script),
+            "tasks": [str(t) for t in tasks],
+            # `doc` хранится в карточке, но в UI не рендерится — для README.
+            "_doc": str(card.get("doc", "")),
+            "_index": int(card.get("index", 0)),
+            # `resolved` помечает решенные карточки — обводятся зелёной рамкой
+            # в UI. По умолчанию false. Юзер сам ставит `"resolved": true`
+            # когда задача закрыта.
+            "resolved": bool(card.get("resolved", False)),
+        }
+    # Сортируем по `_index` (на случай если glob упорядочил не так).
+    return dict(sorted(out.items(), key=lambda kv: kv[1].get("_index", 0)))
+
+
+SCRIPTS = _load_cards()
+TOTAL_CARDS = len(glob.glob(os.path.join(SCRIPTS_CARDS_DIR, "*.json")))  # all cards, parked+active
 
 ALBION_PID = None
 
@@ -197,6 +175,20 @@ HTML = """<!DOCTYPE html>
         border-left-color: var(--ok);
         border-left-width: 5px;
         box-shadow: 0 0 12px var(--ok), inset 0 0 14px rgba(57, 255, 20, 0.18);
+    }
+    .script-card.resolved-card {
+        border: 2px solid var(--ok);
+        border-left: 5px solid var(--ok);
+        box-shadow: 0 0 10px var(--ok), inset 0 0 14px rgba(57, 255, 20, 0.12);
+        background: linear-gradient(180deg, rgba(57, 255, 20, 0.04), var(--card-bg) 30%);
+    }
+    .script-card.resolved-card h3::after {
+        content: "✓ РЕШЕНО";
+        color: var(--ok);
+        font-size: 9pt;
+        letter-spacing: 0.5px;
+        text-shadow: var(--ok-glow);
+        margin-left: 8px;
     }
     .script-card.error-card   { border-left-color: var(--err); }
     .script-card h3 {
@@ -335,14 +327,78 @@ HTML = """<!DOCTYPE html>
     <code id="buildVer" style="color:#ff6600; font-weight:bold; background:#000;">--</code>
     <label style="margin-left:12px">PID:</label>
     <code id="serverPid">--</code>
+    <button class="btn" onclick="reloadCards()" style="margin-left:12px; background:#2a2a00; color:#ffff00; border-color:#666600;">⟳ Cards</button>
 </div>
 
+<h2>🗺 Atlas preview <span style="font-size:8pt; color:#888;">(auto-refresh 5s)</span></h2>
+<div class="map-preview" id="mapPreview" style="background:var(--card-bg); border:1px solid var(--border); border-left:3px solid var(--info); padding:12px 16px; display:grid; grid-template-columns: 1fr 280px; gap:16px; align-items:start;">
+    <div>
+        <div id="mapTabs" style="margin-bottom:8px; display:flex; gap:6px; font-size:9.5pt;">
+            <button class="map-tab active" data-kind="atlas"   onclick="switchMapTab('atlas')">🖼 Base <span id="cntAtlas"  class="cnt">0</span></button>
+            <button class="map-tab"        data-kind="overlay" onclick="switchMapTab('overlay')">🎯 Overlay <span id="cntOverlay" class="cnt">0</span></button>
+            <button class="map-tab"        data-kind="diff"    onclick="switchMapTab('diff')">🔄 Diff <span id="cntDiff"    class="cnt">0</span></button>
+        </div>
+        <img id="mapImg" src="/map" alt="worldmap atlas (no dumps yet — run card #12 then #13)" style="max-width:100%; max-height:540px; image-rendering:pixelated; background:#000; border:1px solid var(--border); display:block;" onerror="this.style.opacity=0.2; document.getElementById('mapMeta').textContent='нет PNG — запусти #12 (capture) → #13 (parse)';">
+        <div style="margin-top:6px; font-size:8pt; color:#666;">PNG превью обновляется каждые 5с. <code>image-rendering:pixelated</code> чтобы пиксели были чёткие (атлас — низкое разрешение).</div>
+    </div>
+    <div>
+        <div class="meta" style="font-size:8.5pt; color:#888; line-height:1.6;">
+            <div style="color:var(--info); font-weight:bold; margin-bottom:4px;">Latest dump:</div>
+            <div id="mapMeta" style="background:#0a0a18; padding:8px; border-left:2px solid var(--info); font-family:monospace; white-space:pre-wrap;">(waiting for first dump…)</div>
+        </div>
+        <div style="margin-top:10px; font-size:8.5pt; color:#888;">
+            <div style="color:var(--info); font-weight:bold; margin-bottom:4px;">All dumps (<span id="tabLabel">atlas</span>):</div>
+            <select id="mapSelect" size="6" style="width:100%; background:#0a0a18; color:#d0d0d0; border:1px solid var(--border); font-family:monospace; font-size:8pt; padding:4px;" onchange="if(this.value) onMapSelectChange(this.value);">
+                <option>(empty)</option>
+            </select>
+        </div>
+        <div style="margin-top:6px; font-size:7.5pt; color:#666;">Клик на entry — переключить preview. <span style="color:#39ff14">Overlay</span> = #14; <span style="color:#ff5555">Diff</span> = #15.</div>
+    </div>
+</div>
+
+<style>
+.map-tab {
+    background: #1a1a2a; color: #888;
+    border: 1px solid var(--border);
+    padding: 5px 10px; cursor: pointer;
+    font: inherit; font-size: 9.5pt;
+    letter-spacing: 0.3px;
+    border-radius: 3px 3px 0 0;
+    border-bottom: 2px solid transparent;
+}
+.map-tab:hover:not(.active) { background: #2a2a3a; color: #aaa; }
+.map-tab.active {
+    color: var(--info);
+    border-bottom-color: var(--info);
+    background: #0a0a18;
+}
+.map-tab .cnt {
+    display: inline-block;
+    background: #2a2a3a;
+    color: #666;
+    border-radius: 8px;
+    padding: 0 6px;
+    margin-left: 4px;
+    font-size: 8pt;
+}
+.map-tab.active .cnt { background: var(--info); color: #000; font-weight: bold; }
+</style>
+
 <h2>▶ Frida-скрипты для RE</h2>
+
+<div class="todo-box" id="todoBox">
+    <label class="todo-label" for="userTodo">📝 Текущая задача (TODO) — сохраняется в браузере:</label>
+    <textarea id="userTodo" class="todo-textarea" rows="3" placeholder="Например: проверить #14 overlay с реальными entities / починить SDK mismatch в aor_scanner / написать R29 live overlay ..."></textarea>
+    <div class="todo-meta">
+        <span id="todoStatus" class="todo-status-empty">(пусто — начни вводить)</span>
+        <button onclick="clearTodo()">🗑 Очистить</button>
+    </div>
+</div>
 <div class="script-grid">
 {% for key, s in SCRIPTS.items() %}
-<div class="script-card" id="card-{{ key }}">
+<div class="script-card{% if s.resolved %} resolved-card{% endif %}" id="card-{{ key }}">
     <h3>
-        <span style="color:#ff6600; margin-right:6px;">[{{ loop.index }}/{{ SCRIPTS|length }}]</span>
+        <span style="color:#ff6600; margin-right:6px;">[{{ s._index }}/{{ total_in_folder }}]</span>
         {{ s.name }}
         <span class="status idle" id="status-{{ key }}">простаивает</span>
     </h3>
@@ -370,7 +426,18 @@ HTML = """<!DOCTYPE html>
 </div>
 
 <script>
-const activeJobs = {}; // key -> job_id
+async function reloadCards() {
+    try {
+        const r = await fetch('/reload-cards', {method: 'POST'});
+        const j = await r.json();
+        if (j.ok) location.reload();
+        else alert('reload failed');
+    } catch (e) {
+        alert('reload error: ' + e);
+    }
+}
+
+    const activeJobs = {}; // key -> job_id
 
 // Маппинг канонических состояний на русские подписи (для status-бейджей).
 const STATUS_TEXT = {
@@ -509,6 +576,134 @@ async function refreshVersion() {
 }
 refreshVersion();
 setInterval(refreshVersion, 5000);
+
+// R25+R27: auto-refresh atlas preview every 5s, type-aware (Base/Overlay/Diff)
+let currentMapKind = 'atlas';   // active tab
+let lastMapsData = null;         // cache for tab switching
+async function refreshMap() {
+    try {
+        const r = await fetch('/maps');
+        const j = await r.json();
+        lastMapsData = j;
+        const sel = document.getElementById('mapSelect');
+        const img = document.getElementById('mapImg');
+        const meta = document.getElementById('mapMeta');
+        // Update counts on tab buttons
+        const c = j.counts || {};
+        document.getElementById('cntAtlas').textContent   = c.atlas   || 0;
+        document.getElementById('cntOverlay').textContent = c.overlay || 0;
+        document.getElementById('cntDiff').textContent    = c.diff    || 0;
+        // Render current kind's list
+        renderMapKind(currentMapKind);
+    } catch (e) {
+        document.getElementById('mapMeta').textContent = 'err: ' + e;
+    }
+}
+function renderMapKind(kind) {
+    if (!lastMapsData) return;
+    const sel = document.getElementById('mapSelect');
+    const img = document.getElementById('mapImg');
+    const meta = document.getElementById('mapMeta');
+    document.getElementById('tabLabel').textContent = kind;
+    const items = lastMapsData[kind] || [];
+    if (items.length === 0) {
+        sel.innerHTML = '<option>(empty)</option>';
+        meta.textContent = '(no ' + kind + ' PNGs yet — see card #' + (kind === 'atlas' ? '13' : kind === 'overlay' ? '14' : '15') + ')';
+        img.src = '/map';   // fallback
+        img.style.opacity = 0.2;
+        return;
+    }
+    sel.innerHTML = '';
+    for (const m of items) {
+        const opt = document.createElement('option');
+        opt.value = m.name + '?t=' + Math.floor(m.mtime * 1000);
+        opt.textContent = m.name + '  (' + (m.w || '?') + 'x' + (m.h || '?') + ', ' + Math.round(m.size / 1024) + ' KB)';
+        if (m.url === img.getAttribute('data-current')) opt.selected = true;
+        sel.appendChild(opt);
+    }
+    const latest = items[0];
+    const newSrc = latest.url + '?t=' + Math.floor(latest.mtime * 1000);
+    if (img.src.indexOf(latest.url) < 0) {
+        img.src = newSrc;
+        img.setAttribute('data-current', latest.url);
+    }
+    img.style.opacity = 1;
+    const ageSec = Math.max(0, Math.floor(Date.now() / 1000) - Math.floor(latest.mtime));
+    meta.textContent = latest.name + '\n' +
+        (latest.w || '?') + ' × ' + (latest.h || '?') + '  (' + (latest.label || kind) + ')\n' +
+        Math.round(latest.size / 1024) + ' KB\n' +
+        ageSec + 's ago\n' +
+        (lastMapsData.counts ? lastMapsData.counts[kind] : items.length) + ' ' + kind + ' PNG(s)';
+}
+function switchMapTab(kind) {
+    currentMapKind = kind;
+    document.querySelectorAll('.map-tab').forEach(t => {
+        t.classList.toggle('active', t.getAttribute('data-kind') === kind);
+    });
+    renderMapKind(kind);
+}
+function onMapSelectChange(value) {
+    const name = value.split('?')[0];
+    const kind = currentMapKind;
+    document.getElementById('mapImg').src = '/' + kind + '/' + name;
+    document.getElementById('mapImg').setAttribute('data-current', '/' + kind + '/' + name);
+}
+refreshMap();
+setInterval(refreshMap, 5000);
+
+// R29: user TODO persistence (localStorage, debounced 500ms)
+const TODO_KEY = 'aor_panel_user_todo';
+let todoSaveTimer = null;
+function loadTodo() {
+    try {
+        const t = localStorage.getItem(TODO_KEY) || '';
+        document.getElementById('userTodo').value = t;
+        updateTodoStatus();
+    } catch (e) { /* localStorage may be blocked */ }
+}
+function saveTodo() {
+    try {
+        const t = document.getElementById('userTodo').value;
+        localStorage.setItem(TODO_KEY, t);
+        updateTodoStatus();
+    } catch (e) {
+        const el = document.getElementById('todoStatus');
+        if (e && e.name === 'QuotaExceededError') {
+            el.textContent = '⚠️ quota exceeded (>5MB) — текст не сохранён';
+        } else {
+            el.textContent = '⚠️ localStorage недоступен';
+        }
+        el.className = 'todo-meta todo-status-empty';
+    }
+}
+function clearTodo() {
+    if (!confirm('Очистить текущую задачу?')) return;
+    document.getElementById('userTodo').value = '';
+    saveTodo();
+}
+// Cross-tab sync: если TODO изменился в другой вкладке — подхватим
+window.addEventListener('storage', function(e) {
+    if (e.key === TODO_KEY) loadTodo();
+});
+function updateTodoStatus() {
+    const t = document.getElementById('userTodo').value;
+    const el = document.getElementById('todoStatus');
+    if (t.trim().length > 0) {
+        el.textContent = '✓ сохранено (' + t.length + ' chars, last edit ' + new Date().toLocaleTimeString() + ')';
+        el.className = 'todo-status-saved';
+    } else {
+        el.textContent = '(пусто — начни вводить)';
+        el.className = 'todo-status-empty';
+    }
+}
+const todoEl = document.getElementById('userTodo');
+if (todoEl) {
+    todoEl.addEventListener('input', () => {
+        clearTimeout(todoSaveTimer);
+        todoSaveTimer = setTimeout(saveTodo, 500);
+    });
+    loadTodo();
+}
 </script>
 </body>
 </html>
@@ -533,7 +728,22 @@ def get_albion_pid():
 # ─── routes ────────────────────────────────────────────────
 @app.route("/")
 def index():
-    return render_template_string(HTML, SCRIPTS=SCRIPTS, JOBS=JOBS)
+    cards = _load_cards()
+    total = len(glob.glob(os.path.join(SCRIPTS_CARDS_DIR, "*.json")))
+    return render_template_string(
+        HTML,
+        SCRIPTS=cards,
+        JOBS=JOBS,
+        total_in_folder=total,
+    )
+
+
+@app.route("/reload-cards", methods=["POST"])
+def reload_cards():
+    global SCRIPTS, TOTAL_CARDS
+    SCRIPTS = _load_cards()
+    TOTAL_CARDS = len(glob.glob(os.path.join(SCRIPTS_CARDS_DIR, "*.json")))
+    return jsonify({"ok": True, "active": len(SCRIPTS), "total": TOTAL_CARDS})
 
 
 @app.route("/pid")
@@ -555,25 +765,40 @@ def version():
 
 @app.route("/launch/<key>", methods=["POST"])
 def launch(key):
-    if key not in SCRIPTS:
+    cards = _load_cards()
+    if key not in cards:
         return jsonify({"error": f"unknown script: {key}"}), 400
+    card = cards[key]
     pid = get_albion_pid()
     if not pid:
         return jsonify({"error": "Albion-Online not running"}), 503
-    if not os.path.exists(SCRIPTS[key]["script"]):
-        return jsonify({"error": f"script file missing: {SCRIPTS[key]['script']}"}), 500
+    if not os.path.exists(card["script"]):
+        return jsonify({"error": f"script file missing: {card['script']}"}), 500
 
     job_id = datetime.now().strftime("%Y%m%d_%H%M%S_") + key
     log_file = os.path.join(LOG_DIR, job_id + ".log")
-    cmd = [
-        "sudo", "-S",
-        "frida", "-p", str(pid), "--runtime=v8",
-        "-l", "/usr/local/lib/node_modules/frida-il2cpp-bridge/dist/index.js",
-        "-l", "/mnt/hgfs/D/AOR_core/Frida/lib_offsets_discovery.js",
-        "-l", SCRIPTS[key]["script"],
-    ]
 
+    # R24: detect script type by extension. .js → frida hook (стандартный путь),
+    # .sh → bash-driver (например tools/zoom_hack.sh — запускает frida+wmctrl+xdotool
+    # сам). Для .sh передаём ALBION_PID env, чтобы скрипт знал к какому PID цепляться.
+    script_path = card["script"]
+    if script_path.endswith(".sh"):
+        cmd = ["sudo", "-S", "/bin/bash", script_path]
+    elif script_path.endswith(".js"):
+        cmd = [
+            "sudo", "-S",
+            "frida", "-p", str(pid), "--runtime=v8",
+            "-l", "/usr/local/lib/node_modules/frida-il2cpp-bridge/dist/index.js",
+            "-l", "/mnt/hgfs/D/AOR_core/Frida/lib_offsets_discovery.js",
+            "-l", script_path,
+        ]
+    else:
+        # Generic fallback: try shebang via execve.
+        cmd = ["sudo", "-S", script_path]
 
+    # R24: для .sh скриптов пробрасываем ALBION_PID через env (zoom_hack.sh это читает).
+    env = os.environ.copy()
+    env["ALBION_PID"] = str(pid)
 
 
     with open(log_file, "wb") as f:
@@ -584,6 +809,7 @@ def launch(key):
             stderr=subprocess.STDOUT,
             bufsize=0,
             cwd="/mnt/hgfs/D/AOR_core",
+            env=env,
         )
         try:
             proc.stdin.write(b"31271\n")
@@ -675,6 +901,185 @@ def kill(job_id):
         pass
     JOBS[job_id]["status"] = "killed"
     return jsonify({"ok": True})
+
+
+# ─── R25+R27: Atlas map preview routes ─────────────────────
+# Serves the PNG dumps produced by tools/parse_map_atlas.py (which
+# consumes /tmp/aor_map_Color32_*.bin from #12 auto_zoom_capture),
+# tools/overlay_entities.py (R26 #14 → _overlay.png), and
+# tools/diff_atlases.py (R26 #15 → _diff.png).
+#
+# Routes:
+#   /maps            → JSON: {atlas:[...], overlay:[...], diff:[...], counts:{...}}
+#   /map             → redirect to latest ATLAS png
+#   /map/<name>      → specific atlas png
+#   /overlay         → redirect to latest OVERLAY png
+#   /overlay/<name>  → specific overlay png
+#   /diff            → redirect to latest DIFF png
+#   /diff/<name>     → specific diff png
+#
+# R27 changes: refactored list_maps() to return categorized dict.
+# /map, /overlay, /diff all share the same serve_png helper.
+
+import glob as _glob
+
+MAP_DIR = "/tmp"
+
+def _classify_png(name: str) -> str:
+    """aor_map_*_overlay.png → 'overlay', aor_map_*_diff.png → 'diff', else 'atlas'."""
+    if not name.startswith("aor_map_") or not name.endswith(".png"):
+        return "skip"
+    if name.endswith("_overlay.png"):
+        return "overlay"
+    if name.endswith("_diff.png"):
+        return "diff"
+    return "atlas"
+
+
+def _build_map_item(path: str) -> dict:
+    """Build a single item dict with kind/url/mtime/size/sidecar metadata."""
+    name = os.path.basename(path)
+    kind = _classify_png(name)
+    if kind == "skip":
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    meta_path = path + ".json"
+    meta = {}
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+        except (OSError, ValueError):
+            pass
+    return {
+        "name":  name,
+        "kind":  kind,
+        "url":   f"/{kind}/" + name,
+        "size":  st.st_size,
+        "mtime": st.st_mtime,
+        "w":     meta.get("w"),
+        "h":     meta.get("h"),
+        "label": meta.get("label"),
+    }
+
+
+@app.route("/maps")
+def list_maps():
+    out = {"atlas": [], "overlay": [], "diff": []}
+    for path in _glob.glob(os.path.join(MAP_DIR, "aor_map_*.png")):
+        item = _build_map_item(path)
+        if item is not None:
+            out[item["kind"]].append(item)
+    for k in out:
+        out[k].sort(key=lambda x: x["mtime"], reverse=True)
+    return jsonify({
+        "atlas":  out["atlas"],
+        "overlay":out["overlay"],
+        "diff":   out["diff"],
+        "counts": {k: len(out[k]) for k in out},
+    })
+
+
+def _latest_for(kind: str):
+    """Helper: redirect to latest PNG of given kind (atlas/overlay/diff)."""
+    items = list_maps().get_json()[kind]
+    if not items:
+        return ("", 404)
+    return redirect("/" + kind + "/" + items[0]["name"])
+
+
+def _serve_png(kind: str, name: str):
+    """Helper: serve specific PNG with path-traversal guard.
+    `kind` must be one of atlas/overlay/diff; this affects which suffix is required.
+    """
+    base = os.path.basename(name)
+    if name in (".", "..") or base != name or not base.startswith("aor_map_") or not base.endswith(".png"):
+        return ("bad name", 400)
+    if _classify_png(base) != kind:
+        return (f"kind mismatch: {base} is not a {kind} png", 400)
+    path = os.path.join(MAP_DIR, base)
+    if not os.path.isfile(path):
+        return ("not found", 404)
+    return send_file(path, mimetype="image/png", max_age=0)
+
+
+@app.route("/map")
+def latest_map():
+    return _latest_for("atlas")
+
+
+@app.route("/map/<path:name>")
+def serve_map(name):
+    return _serve_png("atlas", name)
+
+
+@app.route("/overlay")
+def latest_overlay():
+    return _latest_for("overlay")
+
+
+@app.route("/overlay/<path:name>")
+def serve_overlay(name):
+    return _serve_png("overlay", name)
+
+
+@app.route("/diff")
+def latest_diff():
+    return _latest_for("diff")
+
+
+@app.route("/diff/<path:name>")
+def serve_diff(name):
+    return _serve_png("diff", name)
+
+
+# ─── R28: /entities endpoint ──────────────────────────────────
+# Serves the latest entity dump from /tmp/aor_entities.json
+# (produced by tools/entity_dumper.sh one-shot OR --daemon mode).
+# Used by overlay card #14 + radar_server (R22) + any future live tooling.
+
+ENTITIES_PATH = "/tmp/aor_entities.json"
+
+@app.route("/entities")
+def get_entities():
+    if not os.path.isfile(ENTITIES_PATH):
+        return jsonify({"error": "no /tmp/aor_entities.json", "hint": "run card #17 (one-shot) or #18 (daemon)"}), 404
+    try:
+        with open(ENTITIES_PATH, "r") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        return jsonify({"error": f"failed to read: {e}"}), 500
+    if isinstance(data, list):
+        entities = data
+    elif isinstance(data, dict) and "entities" in data:
+        entities = data["entities"]
+    else:
+        return jsonify({"error": "unexpected format (need list or {entities: [...]})"}), 500
+    # Strip non-essential fields to keep response small for polling
+    compact = []
+    for e in entities:
+        if not isinstance(e, dict):
+            continue
+        compact.append({
+            "Id":       e.get("Id", 0),
+            "X":        e.get("X", 0.0),
+            "Y":        e.get("Y", 0.0),
+            "Z":        e.get("Z", 0.0),
+            "IsPlayer": bool(e.get("IsPlayer", False)),
+            "IsEnemy":  bool(e.get("IsEnemy",  False)),
+            "IsNpc":    bool(e.get("IsNpc",    False)),
+            "Type":     e.get("Type", ""),
+        })
+    st = os.stat(ENTITIES_PATH)
+    return jsonify({
+        "count": len(compact),
+        "mtime": st.st_mtime,
+        "age_sec": int(max(0, time.time() - st.st_mtime)),
+        "entities": compact,
+    })
 
 
 if __name__ == "__main__":

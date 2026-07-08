@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Config.cs;Entity.cs;EntityFinderGom.cs;EntityListFinder.cs;GameFinder.cs;HeapScanner.cs;IMemoryReader.cs;MemoryReader.cs;PlayerNameFinder.cs;Program.cs" />
+    <Compile Include="Config.cs;Entity.cs;EntityFinderGom.cs;EntityListFinder.cs;GameFinder.cs;HeapScanner.cs;IMemoryReader.cs;InputController.cs;MemoryReader.cs;PlayerNameFinder.cs;Program.cs" />
   </ItemGroup>
 
 </Project>
