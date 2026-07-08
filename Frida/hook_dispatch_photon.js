@@ -40,6 +40,12 @@ const HANDLERS = [
 //   args[0] = this, args[1] = EventCodes (event code, enum), args[2] = cwt (event data object)
 const DISPATCHER_RVA  = 0x36BCBF0;
 
+// Central Operation dispatcher (from ce1 registry):
+//   ce1.b<object>(gyx A_0)  // RVA: 0x4BE0100
+//   args[0] = gyx (response object) — static method, no 'this'
+//   returns the handler type; fires for ALL operation responses
+const OPRESPONSE_RVA  = 0x4BE0100;
+
 // FOCUS MODE: only EventCodes.KeySync (598) is logged
 const KEYSYNC_CODE    = 598;
 const PER_HANDLER_CAP  = 32;
@@ -313,6 +319,30 @@ function init() {
     });
     console.log('[+] armed af(EventCodes, cwt)  RVA=0x' + DISPATCHER_RVA.toString(16) + '   (the central Photon dispatcher for this build)');
 
+    // ─── Hook central Operation dispatcher ─────────
+    // ce1.b<object>(gyx A_0) at RVA 0x4BE0100
+    // Static method: args[0] = gyx (OperationResponse)
+    var opRespAddr = gameBase.add(OPRESPONSE_RVA);
+    Interceptor.attach(opRespAddr, {
+        onEnter: function(args) {
+            try {
+                var resp = args[0];
+                if (!resp || !resp.class) return;
+                // Read OperationCode from the response object
+                var ocField = resp.class.field('OperationCode') || resp.class.field('code');
+                if (!ocField) return;
+                var opCode = ocField.readValue(resp).toInt32() & 0xFFFF;
+                if (opCode === 41) {
+                    console.log('\n[ChangeCluster #]  opCode=' + opCode + '  capturing param[3]...');
+                    extractChangeClusterParam3(resp);
+                }
+            } catch (e) {
+                /* benign */
+            }
+        }
+    });
+    console.log('[+] armed ce1.b<object>(gyx)  RVA=0x' + OPRESPONSE_RVA.toString(16) + '   (operation dispatcher)');
+
     // ─── Hook all 10 known handler entrypoints ────────────────
     HANDLERS.forEach(function(h) { attachHandler(gameBase, h); });
 
@@ -384,6 +414,72 @@ try {
 // hardcode the key — we walk every entry and pick any Byte[] with length 8
 // (or Int16[4] / Int32[2] as alternates). Function is hoisted, so it works
 // from the dispatcher onEnter even though it's declared here.
+// ─── ChangeCluster (Operation 69) data capture ─────────────────────────
+// When a ChangeCluster operation response arrives, extract param[3] (byte[])
+// and write it to a temp file for the external scanner to pick up.
+const CHANGECLUSTER_OPCODE = 69;  // Operations.ChangeCluster
+const CLUSTER_DATA_OUTPUT  = "/mnt/hgfs/D/AOR_win_mem/cluster_data.bin";  // Windows-visible path
+
+function extractChangeClusterParam3(respObj) {
+    if (!respObj) { console.log('   [CC] no response object'); return; }
+    try {
+        // Navigate: resp.Parameters → Dictionary → find key=3
+        var paramField = respObj.class ? respObj.class.field('Parameters') : null;
+        if (!paramField) { console.log('   [CC] no Parameters field'); return; }
+        var paramsDict = paramField.readValue(respObj);
+        if (!paramsDict) { console.log('   [CC] Parameters is null'); return; }
+
+        var dictCls = paramsDict.class;
+        var entriesField = dictCls.field('_entries');
+        var countField = dictCls.field('_count');
+        if (!entriesField || !countField) { console.log('   [CC] _entries/_count not found'); return; }
+
+        var arr = entriesField.readValue(paramsDict);
+        var total = countField.readValue(paramsDict).toInt32();
+
+        for (var i = 0; i < total; i++) {
+            var ent = arr.get(i);
+            if (!ent || !ent.field) continue;
+            var k = ent.field('key').readValue(ent).toInt32();
+            if (k !== 3) continue;  // param[3]
+
+            var v = ent.field('value').readValue(ent);
+            if (!v || !v.class) continue;
+            var vname = v.class.name || '';
+
+            if (vname === 'Byte[]') {
+                var len = -1;
+                try {
+                    if (typeof v.length === 'number') len = v.length;
+                    else {
+                        var lf = v.class.field('_length') || v.class.field('Length');
+                        if (lf) len = lf.readValue(v).toInt32();
+                    }
+                } catch (e) {}
+                console.log('   [CC] param[3] Byte[] len=' + len + '  (Capture opCode=41)');
+
+                // Write to file as raw binary
+                try {
+                    var buf = Memory.alloc(len);
+                    for (var bi = 0; bi < len; bi++) {
+                        buf.writeU8(v.get(bi).toInt32() & 0xff, bi);
+                    }
+                    var f = new File(CLUSTER_DATA_OUTPUT, 'wb');
+                    f.write(buf.readByteArray(len));
+                    f.flush();
+                    f.close();
+                    console.log('   [CC] wrote ' + len + ' bytes to ' + CLUSTER_DATA_OUTPUT);
+                } catch (we) {
+                    console.log('   [CC] file write error: ' + we.message);
+                }
+            }
+            break;
+        }
+    } catch (e) {
+        console.log('   [CC] extract error: ' + e.message);
+    }
+}
+
 function extractKeySyncSalt(evObj) {
     if (!evObj) { console.log('   [SALT] no event object'); return; }
     try {

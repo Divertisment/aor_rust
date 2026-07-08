@@ -229,7 +229,7 @@ If one of them throws, the next is tried. This makes the hook robust across brid
 2. What's the exact key (number) in `cwt.Parameters` for the salt? Usually 252 (per Photon protocol) but Albion may differ.
 3. What's the KDF? Need to find the AES key derivation in GameAssembly.so.
 4. What's the AES mode and IV? Photon typically uses AES-256-CTR with IV = first 16 bytes of payload.
-5. Where exactly does `IPhotonPeerListener.OnOperationResponse` get called in this build (RVA)?
+5. **Where exactly does `IPhotonPeerListener.OnOperationResponse` get called in this build (RVA)?** → **RESOLVED 2026-07-08 R23:** it is `cr0.ahx` (RVA 0x19E9228 / alt 0x03A54994), args = (this, gyx OperationResponse, short opCode). See **`STATUS_R23.md`** for full OperationResponse capture + ReadClusterData/GetDange pipeline + collision-map architecture.
 
 ---
 

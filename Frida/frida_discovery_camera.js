@@ -50,8 +50,9 @@ Il2Cpp.perform(function () {
     // Для подробного отчёта используем bridge напрямую — получаем nativeGo/nativeCam/expectedId.
     // Это идентично тому, что делает lib, но тут мы просто показываем всё в логе.
     try {
-        var coreAsm = Il2Cpp.domain.assembly('UnityEngine.CoreModule');
-        var Camera = coreAsm.image.class('UnityEngine.Camera');
+        // FIX: cross-assembly lookup — Camera может жить в любом из UnityEngine.*Module,
+        // не только в CoreModule. Il2Cpp.domain.class(name) сканирует ВСЕ загруженные images.
+        var Camera = Il2Cpp.domain.class('UnityEngine.Camera');
         var cam = Camera.method('get_main').invoke(null);
         var go = cam.method('get_gameObject').invoke();
         var nativeGo = go.field('m_CachedPtr').value;

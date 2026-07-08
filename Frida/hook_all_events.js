@@ -2,6 +2,15 @@
 // Hooks ALL known event dispatch methods simultaneously
 // sudo frida -n "Albion-Online" -l hook_all_events.js -q -t 120
 
+// Initialize il2cpp bridge so .class works on pointers
+try {
+    Il2Cpp.perform(function() {
+        console.log('[+] il2cpp bridge ready');
+    });
+} catch (e) {
+    console.log('[!] il2cpp bridge not available: ' + e.message);
+}
+
 var modules = Process.enumerateModules();
 var gameBase = null;
 
@@ -45,11 +54,66 @@ if (!gameBase) {
     });
 
     // Hook cr0.ahx (OnOperationResponse for game simulation) - RVA 0x19E9228
+    // args[0]=this(cr0), args[1]=gyx(OperationResponse), args[2]=opCode(short)
     var ahxAddr = gameBase.add(0x19E9228);
     console.log("[+] Hooking cr0.ahx at: " + ahxAddr);
     Interceptor.attach(ahxAddr, {
         onEnter: function(args) {
-            console.log("[cr0.ahx CALLED] opCode=" + args[2].toInt32());
+            var opCode = args[2].toInt32();
+            if (opCode === 41) {  // ChangeCluster
+                console.log("\n[ChangeCluster] opCode=" + opCode + "  extracting param[3]...");
+                try {
+                    var gyi = args[1];  // OperationResponse object
+                    // Read the Dictionary<byte,object> Parameters via il2cpp field access
+                    var pField = gyi.class.field('Parameters');
+                    if (!pField) { console.log('  [!] no Parameters field'); return; }
+                    var paramsDict = pField.readValue(gyi);
+                    if (!paramsDict) { console.log('  [!] Parameters is null'); return; }
+
+                    var entriesField = paramsDict.class.field('_entries');
+                    var countField = paramsDict.class.field('_count');
+                    if (!entriesField || !countField) { console.log('  [!] _entries/_count not found'); return; }
+
+                    var arr = entriesField.readValue(paramsDict);
+                    var total = countField.readValue(paramsDict).toInt32();
+
+                    for (var i = 0; i < total; i++) {
+                        var ent = arr.get(i);
+                        if (!ent) continue;
+                        var k = ent.field('key').readValue(ent).toInt32();
+                        if (k !== 3) continue;
+
+                        var v = ent.field('value').readValue(ent);
+                        if (!v || !v.class) continue;
+                        var vname = v.class.name || '';
+                        if (vname !== 'Byte[]') { console.log('  [!] param[3] is ' + vname + ' not Byte[]'); break; }
+
+                        var len = -1;
+                        try { len = v.length; } catch (e) {
+                            var lf = v.class.field('_length') || v.class.field('Length');
+                            if (lf) len = lf.readValue(v).toInt32();
+                        }
+                        console.log('   param[3] Byte[] len=' + len);
+
+                        // Write to file
+                        var outPath = "/mnt/hgfs/D/AOR_win_mem/cluster_data.bin";
+                        var buf = Memory.alloc(len);
+                        for (var bi = 0; bi < len; bi++) {
+                            buf.writeU8(v.get(bi).toInt32() & 0xff, bi);
+                        }
+                        var f = new File(outPath, 'wb');
+                        f.write(buf.readByteArray(len));
+                        f.flush();
+                        f.close();
+                        console.log('   wrote ' + len + ' bytes to ' + outPath);
+                        break;
+                    }
+                } catch (e) {
+                    console.log('  [!] error: ' + e.message);
+                }
+            } else {
+                console.log("[cr0.ahx CALLED] opCode=" + opCode);
+            }
         }
     });
 

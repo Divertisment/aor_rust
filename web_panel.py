@@ -1396,7 +1396,22 @@ def anti_afk_toggle():
 
 
 if __name__ == "__main__":
+    import signal
+    def _death_log(signum, frame):
+        with open("/tmp/aor_panel_death.log", "a") as f:
+            f.write(f"[{datetime.now().isoformat()}] DIED: signal {signum} ({signal.Signals(signum).name})\n")
+        sys.exit(128 + signum)
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGQUIT, signal.SIGABRT, signal.SIGSEGV, signal.SIGBUS, signal.SIGFPE):
+        try:
+            signal.signal(sig, _death_log)
+        except (ValueError, OSError):
+            pass
     print("[*] AOR Panel listening on http://0.0.0.0:7777")
     print("[*] Open in browser: http://localhost:7777")
-    # use_reloader=False: Flask watch & restart on file changes — next правка файла не требует kill -9 + relaunch
-    app.run(host="0.0.0.0", port=7777, debug=False, use_reloader=False)
+    try:
+        app.run(host="0.0.0.0", port=7777, debug=False, use_reloader=False, threaded=True)
+    except Exception as e:
+        print(f"[FATAL] server crashed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

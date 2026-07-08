@@ -79,10 +79,11 @@ function writeDump(handle, length, fname) {
 Il2Cpp.perform(function () {
     console.log('[*] === FRIDA_FIND_A7H_ASSEMBLY ===');
     var d = Il2Cpp.domain;
-    var targetAsm = safe(function(){ return d.assembly('Assembly-CSharp'); }, null);
-    var ct = safe(function(){ return targetAsm && targetAsm.image && targetAsm.image.class('CollisionTester'); }, null);
-    var a7hInAsmCSharp = safe(function(){ return targetAsm && targetAsm.image && targetAsm.image.class('a7h'); }, null);
-    var akEnter = safe(function(){ return targetAsm && targetAsm.image && targetAsm.image.class('AkTriggerCollisionEnter'); }, null);
+    // FIX: cross-assembly class lookups — ищем по ВСЕМ ассеблам, не только внутри image одной сборки.
+    var targetAsm = safe(function(){ return d.assembly('Assembly-CSharp'); }, null);  // Оставлено для логов visibility
+    var ct = safe(function(){ return Il2Cpp.domain.class('CollisionTester'); }, null);
+    var a7hInAsmCSharp = safe(function(){ return Il2Cpp.domain.class('a7h'); }, null);
+    var akEnter = safe(function(){ return Il2Cpp.domain.class('AkTriggerCollisionEnter'); }, null);
     console.log('[*] Assembly-CSharp loaded=' + !!targetAsm);
     console.log('[*]   has CollisionTester                : ' + !!ct);
     console.log('[*]   has a7h                           : ' + !!a7hInAsmCSharp);
@@ -227,9 +228,10 @@ Il2Cpp.perform(function () {
         var m = safe(function(){return ct.method('GetCollisionGrid');}, null);
         if (m) {
             console.log('[*] armed CollisionTester.GetCollisionGrid');
-            m.implementation = function () {
-                var ret = m.invoke(this);
-                console.log('\n[HOOK] CollisionTester.GetCollisionGrid fired, this=' + hp(safe(function(){return this.handle;}, null)));
+            // FIX: frida-il2cpp-bridge v0.13.1 hook args = (instance, ...args) — JS this is undefined.
+            m.implementation = function (instance) {
+                var ret = m.invoke(instance);
+                console.log('\n[HOOK] CollisionTester.GetCollisionGrid fired, this=' + hp(safe(function(){return instance.handle;}, null)));
                 if (!ret) { console.log('   ret=null'); return ret; }
                 var rc = safe(function(){return ret.class;}, null);
                 console.log('   ret.class.name        = ' + safe(function(){return rc.name;}, '?'));

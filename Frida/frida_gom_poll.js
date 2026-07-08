@@ -175,18 +175,15 @@ function init() {
                 ' nodeToGo=+0x' + offsets.nodeToGo.toString(16));
 
     var targetKlasses = [];
-    var asmCSharp = safe(function(){ return Il2Cpp.domain.assembly('Assembly-CSharp'); }, null);
-    if (asmCSharp) {
-        var ct  = safe(function(){ return asmCSharp.image.class('CollisionTester'); }, null);
-        var cga = safe(function(){ return asmCSharp.image.class('CollisionGridAtlasGenerator'); }, null);
-        if (ct)  targetKlasses.push(ct);
-        if (cga) targetKlasses.push(cga);
-    }
-    var asmCommon = safe(function(){ return Il2Cpp.domain.assembly('Albion.Common'); }, null);
-    if (asmCommon) {
-        var a7h = safe(function(){ return asmCommon.image.class('a7h'); }, null);
-        if (a7h) targetKlasses.push(a7h);
-    }
+    // FIX: cross-assembly class lookups — CollisionTester/CGA/a7h в Unity 2021+ могут
+    // жить не в Assembly-CSharp/Albion.Common а в любой из ~20 сборок Albion.
+    // Il2Cpp.domain.class(name) сканирует все загруженные images.
+    var ct  = safe(function(){ return Il2Cpp.domain.class('CollisionTester'); }, null);
+    var cga = safe(function(){ return Il2Cpp.domain.class('CollisionGridAtlasGenerator'); }, null);
+    var a7h = safe(function(){ return Il2Cpp.domain.class('a7h'); }, null);
+    if (ct)  targetKlasses.push(ct);
+    if (cga) targetKlasses.push(cga);
+    if (a7h) targetKlasses.push(a7h);
 
     if (!targetKlasses.length) {
         console.log('[!] NO target klasses found (CollisionTester, CollisionGridAtlasGenerator, a7h) — abort');

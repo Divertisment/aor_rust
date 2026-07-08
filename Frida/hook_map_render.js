@@ -28,7 +28,10 @@
  *     -l /mnt/hgfs/D/AOR_core/Frida/hook_map_render.js
  */
 
-const TARGET_AREAS = [656100, 10497600, 2624400, 1312200];  // 810×810 × {1,16,4,2} bytes/cell
+// FIX: hardcoded TARGET_AREAS removed — filter is now dynamic (`area >= 500000`).
+// Old constants (656100 = 810×810 atlas) only worked for one specific Albion
+// build. Dynamic threshold works for any atlas/zoomed texture regardless of
+// Unity version / upscale factor.
 const DUMP_DIR = '/tmp';
 const MAX_DUMPS = 8;
 const WATCHDOG_MS = 120 * 1000;  // FIX: было 180s — уменьшил по просьбе пользователя
@@ -73,13 +76,26 @@ function dumpIl2CppArray(handle, pixelCount, bytesPerPixel, label, w, h) {
 Il2Cpp.perform(function () {
     console.log('[*] === HOOK_MAP_RENDER ===\n');
 
-    var coreAsm = safe(function(){ return Il2Cpp.domain.assembly('UnityEngine.CoreModule'); }, null);
-    if (!coreAsm) { console.log('[!] UnityEngine.CoreModule not found'); return; }
-
-    var texClass = safe(function(){ return coreAsm.image.class('UnityEngine.Texture2D'); }, null);
-    if (!texClass) { console.log('[!] UnityEngine.Texture2D class not found'); return; }
-
-    console.log('[*] UnityEngine.Texture2D found. Hooking GetPixels32 + GetPixels...');
+    // FIX: Texture2D in Unity 2021+ lives in its own module (UnityEngine.Texture2DModule),
+    // not in UnityEngine.CoreModule where we used to look. `image.class(...)` only sees
+    // classes in that single image, hence the empty `methods('GetPixels32')` result we got.
+    // Use cross-assembly resolver Il2Cpp.domain.class(name) which scans ALL loaded images.
+    var texClass = safe(function(){ return Il2Cpp.domain.class('UnityEngine.Texture2D'); }, null);
+    if (!texClass) {
+        console.log('[!] UnityEngine.Texture2D class not found even via cross-assembly');
+        // DIAGNOSTIC: dump likely-image names so user knows where Texture2D might live
+        try {
+            var all = safe(function(){ return Il2Cpp.domain.assemblies; }, []) || [];
+            var hits = [];
+            for (var i = 0; i < all.length; i++) {
+                var n = safe(function(){ return all[i].name; }, '');
+                if (/texture|image|assetbundle|ui/i.test(n)) hits.push(n);
+            }
+            console.log('[*] DIAG assemblies with texture/image in name: ' + (hits.join(', ') || '(none)'));
+        } catch (e) { console.log('[!] DIAG failed: ' + e.message); }
+        return;
+    }
+    console.log('[*] UnityEngine.Texture2D found via Il2Cpp.domain.class; image=' + safe(function(){ return texClass.image.name; }, '?'));
 
     // ─── Hook Texture2D.GetPixels32(int mipLevel) → Color32[] ───
     // FIX: enumerate ALL overloads of GetPixels32 (0-arg, 1-arg, Rect-arg, etc.) because
@@ -87,33 +103,65 @@ Il2Cpp.perform(function () {
     // leading to 0 hits. frida-il2cpp-bridge .methods(name) returns array of all overloads.
     var getPixels32Overloads = safe(function(){ return texClass.methods('GetPixels32'); }, []);
     console.log('[*] GetPixels32 overloads found: ' + getPixels32Overloads.length);
+    if (getPixels32Overloads.length === 0) {
+        // DIAGNOSTIC: 0 overloads means the bridge couldn't resolve `GetPixels32` on the
+        // resolved class. Dump up to 50 method names (filtered by /[Pp]ixel/) so user
+        // can see what's there. This is what was failing in the live test.
+        try {
+            var ms = safe(function(){ return texClass.methods; }, null);
+            if (ms && ms.length) {
+                var hits = [];
+                for (var k = 0; k < ms.length && hits.length < 50; k++) {
+                    var mn = safe(function(){ return ms[k].name; }, '');
+                    if (/[Pp]ixel/i.test(mn)) hits.push(mn);
+                }
+                console.log('[*] DIAG Texture2D methods matching /[Pp]ixel/i: ' + (hits.join(', ') || '(none)'));
+                if (!hits.length) {
+                    var names = [];
+                    for (var j = 0; j < ms.length && names.length < 20; j++) {
+                        names.push(safe(function(){ return ms[j].name; }, '?'));
+                    }
+                    console.log('[*] DIAG Texture2D first 20 method names: ' + names.join(', '));
+                }
+            }
+        } catch (e) { console.log('[!] DIAG failed: ' + e.message); }
+    }
     // FIX: unified factory for both GetPixels32 + GetPixels hooks (was duplicated logic).
     function makePixelsHook(getPixels, bytesPerPixel, label) {
-        return function (mipLevel) {
+        // FIX: frida-il2cpp-bridge v0.13.1 calls hook implementations with
+        // (instance, ...args) — JS `this` is undefined. Bind via the parameter.
+        return function (instance, mipLevel) {
             var ret;
-            try { ret = getPixels.invoke(this, mipLevel); } catch (e) {
+            try { ret = getPixels.invoke(instance, mipLevel); } catch (e) {
                 console.log('   [!] ' + label + ' invoke failed: ' + e.message);
                 return undefined;
             }
             // skip non-mip0 (different LODs, sub-rects)
             if (mipLevel !== 0 && mipLevel !== undefined) return ret;
-            // FIX: 'this.width' не работает в frida-il2cpp-bridge. Читаем через .property().get(this).
+            // FIX: property access via bridge — read width/height through
+            // texClass.property('width').get(instance), NOT instance.width.
             var w = -1, h = -1;
             try {
                 var wProp = safe(function(){ return texClass.property('width'); }, null);
-                if (wProp) w = wProp.get(this);
+                if (wProp) w = wProp.get(instance);
             } catch (e) {}
             try {
                 var hProp = safe(function(){ return texClass.property('height'); }, null);
-                if (hProp) h = hProp.get(this);
+                if (hProp) h = hProp.get(instance);
             } catch (e) {}
             if (typeof w !== 'number' || typeof h !== 'number' || w < 0 || h < 0) {
                 if (alertOnce) { console.log('   [!] ' + label + ' fired but could not read w/h — skipping dump'); alertOnce = false; }
                 return ret;
             }
             var area = w * h;
+            // FIX: always log the FIRST observed texture size so user can see
+            // Albion's actual atlas dimensions even if it doesn't match the
+            // old hardcoded TARGET_AREAS list.
+            if (hitCount === 0) console.log('\n[*] ' + label + ' FIRST OBS: ' + w + 'x' + h + ' = ' + area + ' pixels');
             if (hitCount >= PER_HOOK_HITS) return ret; hitCount++;
-            if (TARGET_AREAS.indexOf(area) >= 0) {
+            // FIX: loosen filter from hardcoded TARGET_AREAS to a lower bound
+            // (any texture ≥500k pixels) — works regardless of actual atlas size.
+            if (area >= 500000) {
                 console.log('\n[!] Texture2D.' + label + ' HIT: ' + w + 'x' + h + ' = ' + area + ' pixels, mip=' + mipLevel);
                 if (ret && ret.handle) dumpIl2CppArray(ret.handle, area, bytesPerPixel, label, w, h);
             }
@@ -137,6 +185,19 @@ Il2Cpp.perform(function () {
     // FIX: same overload enumeration as GetPixels32. Reuses unified makePixelsHook factory.
     var getPixelsOverloads = safe(function(){ return texClass.methods('GetPixels'); }, []);
     console.log('[*] GetPixels overloads found: ' + getPixelsOverloads.length);
+    if (getPixelsOverloads.length === 0) {
+        try {
+            var ms2 = safe(function(){ return texClass.methods; }, null);
+            if (ms2 && ms2.length) {
+                var pix = [];
+                for (var k = 0; k < ms2.length && pix.length < 50; k++) {
+                    var mn = safe(function(){ return ms2[k].name; }, '');
+                    if (/[Pp]ixel/i.test(mn)) pix.push(mn);
+                }
+                console.log('[*] DIAG GetPixels-overloads lookup found 0; available /[Pp]ixel/i: ' + (pix.join(', ') || '(none)'));
+            }
+        } catch (e) { console.log('[!] DIAG2 failed: ' + e.message); }
+    }
     for (var gei = 0; gei < getPixelsOverloads.length; gei++) {
         var ge = getPixelsOverloads[gei];
         try {
@@ -154,16 +215,19 @@ Il2Cpp.perform(function () {
     var encodePng = safe(function(){ return texClass.method('EncodeToPNG'); }, null);
     if (encodePng) {
         console.log('[+] hooked UnityEngine.Texture2D.EncodeToPNG()');
-        encodePng.implementation = function () {
+        // FIX: instance as first arg, and read width/height through bridge
+    // property accessor instead of naked `this.width` (which is undefined
+    // for Il2CppObject wrappers).
+    encodePng.implementation = function (instance) {
             var ret;
-            try { ret = encodePng.invoke(this); } catch (e) {
+            try { ret = encodePng.invoke(instance); } catch (e) {
                 console.log('   [!] EncodeToPNG invoke failed: ' + e.message);
                 return undefined;
             }
             if (!ret || !ret.handle) return ret;
             var w = -1, h = -1;
-            try { w = this.width; } catch (e) {}
-            try { h = this.height; } catch (e) {}
+            try { w = texClass.property('width').get(instance); } catch (e) {}
+            try { h = texClass.property('height').get(instance); } catch (e) {}
             if (w > 0 && h > 0) {
                 console.log('\n[!] Texture2D.EncodeToPNG called on ' + w + 'x' + h + ' texture, len=' + (ret.length||0));
             }
