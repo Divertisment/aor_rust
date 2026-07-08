@@ -140,6 +140,11 @@ Il2Cpp.perform(function () {
     var findObjectsOfTypeBroken = false;
     var __findAllOfTypeWarned = false;
     var __findObjectsOfTypeWarned = false;
+    // FIX(R11+): getComponentMethod тоже принимает typeof(Type) arg — Site 2 (5th
+    // fallback inner loop) silent per-iteration не имеет outer throttle; нужен
+    // once-only disable flag для diagnostic visibility.
+    var getComponentMethodBroken = false;
+    var __getComponentMethodWarned = false;
 
     var tickInterval = setInterval(function () {
         pollTickNum++;
@@ -182,7 +187,7 @@ Il2Cpp.perform(function () {
                         if (taggedArr && taggedArr.length > 0) {
                             var taggedGO = safe(function(){ return taggedArr.get(0); }, null);
                             if (taggedGO) {
-                                var taggedComp = safe(function(){ return getComponentMethod.invoke(taggedGO, camClass); }, null);
+                                var taggedComp = safe(function(){ return getComponentMethod.invoke(taggedGO, __typedArg(camClass)); }, null);
                                 if (taggedComp && taggedComp.handle && !(taggedComp.handle.isNull && taggedComp.handle.isNull())) {
                                     cam = taggedComp;
                                     if (pollTickNum === 1 || lastBindPath !== 'tag-MainCamera') {
@@ -245,14 +250,25 @@ Il2Cpp.perform(function () {
                             if (!g || !g.handle) continue;
                             checked++;
                             try {
-                                var comp = getComponentMethod.invoke(g, camClass);
+                                if (getComponentMethodBroken) break;
+                                // FIX(R11): wrap with __typedArg — same AV @ 0x132 root cause if camClass as bare ptr
+                                var comp = getComponentMethod.invoke(g, __typedArg(camClass));
                                 if (comp && comp.handle && !comp.handle.isNull()) {
                                     cam = comp;
                                     found++;
                                     console.log('[*] tick#' + pollTickNum + ': Found Camera via GO[' + gi + '].GetComponent(typeof(Camera)) (cursor=' + startIdx + ', checked=' + checked + ')');
                                     break;
                                 }
-                            } catch (ee) {}
+                            } catch (ee) {
+                                // FIX(R11+): once-only disable for getComponentMethod — silent per-iteration
+                                // catches masked AV @ 0x132 spam without diagnostic visibility.
+                                getComponentMethodBroken = true;
+                                if (!__getComponentMethodWarned) {
+                                    __getComponentMethodWarned = true;
+                                    console.log('[!] tick#' + pollTickNum + ': getComponentMethod disabled (likely same bridge .type.object/.typeObject hole as R10)');
+                                }
+                                break;
+                            }
                         }
                         // advance cursor for next poll
                         lastGOcursor = endIdx % gos.length;
@@ -321,7 +337,7 @@ Il2Cpp.perform(function () {
                         if (taggedArrChk && taggedArrChk.length > 0) {
                             var taggedGOChk = safe(function(){ return taggedArrChk.get(0); }, null);
                             if (taggedGOChk) {
-                                var taggedCompChk = safe(function(){ return getComponentMethod.invoke(taggedGOChk, camClass); }, null);
+                                var taggedCompChk = safe(function(){ return getComponentMethod.invoke(taggedGOChk, __typedArg(camClass)); }, null);
                                 if (taggedCompChk && taggedCompChk.handle && taggedCompChk === cam) bindPath = 'tagged/findGOWithTag → GetComponent';
                             }
                         }
