@@ -33,7 +33,7 @@
 const POLL_MS = 200;        // 5 Hz
 const OUT_FILE = '/tmp/aor_camera_matrix.json';
 const WATCHDOG_MS = 120 * 1000;  // FIX: было 180s — уменьшил по просьбе пользователя
-const MAX_BYTES = 2048;
+
 
 // ─── EARLY WATCHDOG (registered BEFORE Il2Cpp.perform so V8 queues the
 //     callback before the bridge dispatches any native work). Without this,
@@ -56,7 +56,12 @@ Il2Cpp.perform(function () {
     console.log('[*] === HOOK_CAMERA_MATRIX ===\n');
     var coreAsm = safe(function(){ return Il2Cpp.domain.assembly('UnityEngine.CoreModule'); }, null);
     if (!coreAsm) { console.log('[!] UnityEngine.CoreModule not loaded'); return; }
-    var camClass = safe(function(){ return coreAsm.image.class('UnityEngine.Camera'); }, null);
+    // FIX: Camera/Resources/Object/GameObject живут в разных модулях Unity 2021+
+    // (Camera — CoreModule, Resources — ResourcesModule, GameObject — GameObjectModule).
+    // Используем Il2Cpp.domain.class() — cross-assembly lookup, ищет во всех загруженных images.
+    // Fallback chain: domain.class → coreAsm (для Camera который исторически в CoreModule).
+    var camClass = safe(function(){ return Il2Cpp.domain.class('UnityEngine.Camera'); }, null)
+                || safe(function(){ return coreAsm.image.class('UnityEngine.Camera'); }, null);
     if (!camClass) { console.log('[!] UnityEngine.Camera class missing'); return; }
     console.log('[*] UnityEngine.Camera found. Polling Camera.main every ' + POLL_MS + 'ms');
 
@@ -64,6 +69,16 @@ Il2Cpp.perform(function () {
     // then read its instance properties worldToCameraMatrix + projectionMatrix.
     var wtcmProp = safe(function(){ return camClass.property('worldToCameraMatrix'); }, null);
     var projProp = safe(function(){ return camClass.property('projectionMatrix'); }, null);
+    // FIX: pre-declare method handles for value-type struct getters too.
+    // .property().get(cam) boxes Matrix4x4/ProjectionMatrix and reads a 16-byte
+    // Il2CppObject header when we do m.handle.add(0).readFloat().
+    // Using cam.method('get_xxx').invoke(cam) returns an unboxed wrapper.
+    // FIX: bridge sometimes auto-strips `get_` prefix. Try with prefix first,
+    // fall back to no-prefix before falling back to .property() (last resort).
+    var getW2C   = safe(function(){ return camClass.method('get_worldToCameraMatrix'); }, null)
+                || safe(function(){ return camClass.method('worldToCameraMatrix'); }, null);
+    var getProj  = safe(function(){ return camClass.method('get_projectionMatrix'); }, null)
+                || safe(function(){ return camClass.method('projectionMatrix'); }, null);
     // Camera.main getter: frida-il2cpp-bridge v0.13.1 иногда не экспортирует статические
     // Unity getters через .property(); пробуем сначала method('get_main') (.invoke(null)),
     // и только если его нет — fallback на .property('main').get(null).
@@ -73,9 +88,39 @@ Il2Cpp.perform(function () {
     // (Albion использует свой CameraManager без стандартного тега). Fallback: взять
     // любую активную камеру через статический геттер Camera.allCameras.
     var getAllCameras = safe(function(){ return camClass.method('get_allCameras'); }, null);
+    // FIX: Camera.allCameras() возвращает только активные камеры текущей сцены — в
+    // loading screen / до активации сцены она возвращает []. В loading screen у Albion
+    // даже Camera.main может быть null. Resources.FindObjectsOfTypeAll(typeof(Camera))
+    // возвращает ВСЕ камеры, включая inactive. Передаём camClass как System.Type аргумент.
+    // FIX: Resources живёт в UnityEngine.ResourcesModule (отдельно от CoreModule в Unity 2021+).
+    // Cross-assembly Il2Cpp.domain.class() ищет во всех loaded images; OR-fallback на coreAsm
+    // для билдов, где Resources случайно остался в CoreModule.
+    var resourcesClass = safe(function(){ return Il2Cpp.domain.class('UnityEngine.Resources'); }, null)
+                      || safe(function(){ return coreAsm.image.class('UnityEngine.Resources'); }, null);
+    var findAllOfType = safe(function(){ return resourcesClass ? resourcesClass.method('FindObjectsOfTypeAll', 1) : null; }, null);
+    // FIX: 5й fallback — Object.FindObjectsOfType(GameObject) → GO.GetComponent(typeof(Camera)).
+    // Включает ВСЕ GO в памяти, включая hide/dont-save. На цинемэшин-проектах захватывает
+    // неактивный Brain + активную Cinemachine *VCamera через её Camera output.
+    // FIX: Object и GameObject — cross-assembly lookup + OR-fallback на coreAsm.
+    // В Unity 2021+ GameObject в отдельном UnityEngine.GameObjectModule, Object обычно
+    // в CoreModule но может быть раскидан по нескольким сборкам. Il2Cpp.domain.class()
+    // покрывает все варианты; coreAsm.image.class — исторический fallback для билдов
+    // где нужные классы ещё в CoreModule.
+    var objectClass = safe(function(){ return Il2Cpp.domain.class('UnityEngine.Object'); }, null)
+                   || safe(function(){ return coreAsm.image.class('UnityEngine.Object'); }, null);
+    var goClass     = safe(function(){ return Il2Cpp.domain.class('UnityEngine.GameObject'); }, null)
+                   || safe(function(){ return coreAsm.image.class('UnityEngine.GameObject'); }, null);
+    var findObjectsOfType = safe(function(){ return objectClass ? objectClass.method('FindObjectsOfType', 1) : null; }, null);
+    var getComponentMethod = safe(function(){ return goClass ? goClass.method('GetComponent', 1) : null; }, null);
     var widthProp = safe(function(){ return camClass.property('pixelWidth'); }, null);
     var heightProp = safe(function(){ return camClass.property('pixelHeight'); }, null);
     var transformProp = safe(function(){ return camClass.property('transform'); }, null);
+
+    // FIX: rotating cursor по массиву GOs — на каждом scan сдвигаем на MAX_GO_SCAN вперёд,
+    // чтобы через ~125 секунд (5000 GOs / 200 per tick / 5s/tick) просканировать весь список.
+    // Без этого 200-GO окно зацикливается на первых 200 элементах и камера живущая на индексе
+    // 5000+ никогда не будет найдена.
+    var lastGOcursor = 0;
 
     var tickInterval = setInterval(function () {
         pollTickNum++;
@@ -97,45 +142,139 @@ Il2Cpp.perform(function () {
                     if (arr && arr.length > 0) {
                         cam = safe(function(){ return arr.get(0); }, null);
                         if (pollTickNum === 1) console.log('[*] tick#1: using Camera.allCameras[0] fallback (no MainCamera tagged)');
+                    } else if (pollTickNum === 1) {
+                        console.log('[*] tick#1: Camera.allCameras() returned empty array (likely loading screen or zero cameras)');
                     }
                 } catch (e) {}
+            }
+            // FIX: 4й fallback — Resources.FindObjectsOfTypeAll(typeof(Camera)). Возвращает
+            // ВСЕ камеры, включая inactive / dont-save. Вызывается когда даже allCameras пуст.
+            // Для STATIC метода bridge v0.13.1 требует invoke без leading null — иначе ошибка
+            // "needs 1 parameter(s), not 2".
+            if (!cam && findAllOfType) {
+                try {
+                    var arr2 = findAllOfType.invoke(camClass);
+                    if (!arr2) {
+                        if (pollTickNum % 25 === 1) console.log('[!] tick#' + pollTickNum + ': FindObjectsOfTypeAll returned null (method exists but invocation failed)');
+                    } else if (arr2.length > 0) {
+                        cam = safe(function(){ return arr2.get(0); }, null);
+                        if (pollTickNum === 1) console.log('[*] tick#1: using Resources.FindObjectsOfTypeAll fallback (n=' + arr2.length + ')');
+                    } else if (pollTickNum % 25 === 1) {
+                        console.log('[*] tick#' + pollTickNum + ': Resources.FindObjectsOfTypeAll returned EMPTY (active+inactive+editor cameras all absent)');
+                    }
+                } catch (e) {
+                    if (pollTickNum % 25 === 1) console.log('[!] tick#' + pollTickNum + ': FindObjectsOfTypeAll.invoke THREW: ' + e.message);
+                }
+            }
+            // FIX: 5й fallback — Object.FindObjectsOfType(GameObject) → для каждого GO дёрнуть
+            // GetComponent(typeof(Camera)). Запускаем редко (на tick%25==2) чтобы не зависнуть.
+            // Это единственный способ поймать камеру прицепленную к донтсев-объекту в сцене
+            // без активной main-камеры (например CinemachineVCamera с Camera output).
+            if (!cam && findObjectsOfType && getComponentMethod && pollTickNum % 25 === 2) {
+                try {
+                    // FIX: Object.FindObjectsOfType это STATIC метод — bridge v0.13.1 требует
+                    // invoke без leading null, иначе 'needs 1 parameter(s), not 2'.
+                    var gos = findObjectsOfType.invoke(goClass);
+                    if (gos && gos.length > 0) {
+                        var checked = 0, found = 0;
+                        // FIX: cap to avoid pause on busy scenes with thousands of GOs.
+                        // + rotating cursor чтобы за несколько polls покрыть весь gos.length.
+                        var MAX_GO_SCAN = 200;
+                        var startIdx = lastGOcursor % gos.length;
+                        var endIdx   = Math.min(gos.length, startIdx + MAX_GO_SCAN);
+                        for (var gi = startIdx; gi < endIdx; gi++) {
+                            var g = gos.get(gi);
+                            if (!g || !g.handle) continue;
+                            checked++;
+                            try {
+                                var comp = getComponentMethod.invoke(g, camClass);
+                                if (comp && comp.handle && !comp.handle.isNull()) {
+                                    cam = comp;
+                                    found++;
+                                    console.log('[*] tick#' + pollTickNum + ': Found Camera via GO[' + gi + '].GetComponent(typeof(Camera)) (cursor=' + startIdx + ', checked=' + checked + ')');
+                                    break;
+                                }
+                            } catch (ee) {}
+                        }
+                        // advance cursor for next poll
+                        lastGOcursor = endIdx % gos.length;
+                        if (!cam) {
+                            var rangeNote = '[' + startIdx + '..' + endIdx + ']';
+                            var cappedNote = gos.length > MAX_GO_SCAN ? ' (rotating over ' + gos.length + ' total)' : '';
+                            console.log('[*] tick#' + pollTickNum + ': scanned ' + rangeNote + ' (' + checked + ' valid), NONE had Camera component' + cappedNote);
+                        }
+                    } else {
+                        console.log('[*] tick#' + pollTickNum + ': Object.FindObjectsOfType(GameObject) returned EMPTY');
+                    }
+                } catch (e) {
+                    console.log('[!] tick#' + pollTickNum + ': FindObjectsOfType(GameObject) THREW: ' + e.message);
+                }
+            }
+            // FIX: 6й ULTIMATE diagnostic на tick#100 — если ничего не нашли, узнаём механизм:
+            // это Cinemachine проект или камеры реально нет в сцене.
+            if (!cam && pollTickNum === 100) {
+                console.log('[!] tick#100 ULTIMATE: 50 секунд без камеры. Диагностирую среду...');
+                var allAsms = safe(function(){ return Il2Cpp.domain.assemblies; }, null) || [];
+                var cmHits = [], klassesFound = [];
+                for (var ai = 0; ai < allAsms.length; ai++) {
+                    var an = safe(function(){ return allAsms[ai].name; }, '');
+                    if (/cinemachine/i.test(an)) cmHits.push(an);
+                    if (/^[a-z][0-9][a-z]$/i.test(an)) klassesFound.push(an);  // short obfuscated names
+                }
+                console.log('[!] Cinemachine assemblies: ' + (cmHits.join(', ') || '(none — Unity Camera expected)'));
+                console.log('[!] Tick #100 done — продолжаю опрос, но это ненормально для 50s опроса');
             }
             // Guard: Unity 6 иногда возвращает cam-объект с Int64 handle == 0
             // (deferred-loaded backing pointer в s_Instance). Без этой проверки
             // matrix4x4ToFloats прочитает 16 нулей и запишет мусор в JSON
             // каждые 200мс в течение ~5с.
+            // FIX: was followed by an IDENTICAL duplicate guard (lines ~114-117)
+            // — unreachable dead code, deleted.
             if (!cam || !cam.handle || (cam.handle.isNull && cam.handle.isNull())) {
                 if (pollTickNum === 1) console.log('[!] Camera.main handle is null — main-камера ещё не готова; продолжу опрашивать');
                 if (pollTickNum % 25 === 0) console.log('[*] tick#' + pollTickNum + ' Camera.main still null');
                 return;
             }
-            if (!cam || !cam.handle || cam.handle.isNull()) {
-                if (pollTickNum % 25 === 0) console.log('[*] tick#' + pollTickNum + ' Camera.main returned null (no main camera tagged?)');
-                return;
-            }
 
-            // Read worldToCameraMatrix — try as bridge property (returns Matrix4x4)
+            // FIX: Matrix4x4 is a 64-byte value-type struct — frida-il2cpp-bridge
+            // .property().get() returns a BOXED wrapper with a 16-byte object header,
+            // so m.handle.add(0).readFloat() reads header bytes (= zeros/garbage).
+            // Solution: invoke the getter METHOD directly, which returns an unboxed
+            // struct wrapper whose .handle points at the raw 64-byte block.
+            // (getW2C / getProj pre-declared outside the setInterval to avoid
+            // 5 Hz GC pressure from per-tick safe() closures.)
             var w2c = null;
-            if (wtcmProp) {
+            if (getW2C) {
+                try { w2c = getW2C.invoke(cam); } catch (e) {}
+            } else if (wtcmProp) {
+                // FIX: explicit warning so user knows JSON may contain garbage.
+                console.log('[!] cam.get_worldToCameraMatrix() missing — falling back to .property() (boxed-handle risk; m[0..11] may be zeros)');
                 try { w2c = wtcmProp.get(cam); } catch (e) {}
             }
 
-            // Read projectionMatrix
             var proj = null;
-            if (projProp) {
+            if (getProj) {
+                try { proj = getProj.invoke(cam); } catch (e) {}
+            } else if (projProp) {
+                console.log('[!] cam.get_projectionMatrix() missing — falling back to .property() (boxed-handle risk)');
                 try { proj = projProp.get(cam); } catch (e) {}
             }
 
-            // Read camera position (Vector3)
+            // FIX: Vector3 is 12-byte value struct — same boxing problem.
+            // Use get_position() method instead of property->get() to get unboxed.
             var pos = null;
             var transform = safe(function(){ return transformProp ? transformProp.get(cam) : null; }, null);
             if (transform) {
-                var posProp = safe(function(){ return transform.class.property('position'); }, null);
-                if (posProp) {
+                var getPos = safe(function(){ return transform.method('get_position'); }, null);
+                if (getPos) {
                     try {
-                        var v = posProp.get(transform);
-                        if (v && v.handle) {
-                            pos = [v.handle.add(0).readFloat(), v.handle.add(4).readFloat(), v.handle.add(8).readFloat()];
+                        var v = getPos.invoke(transform);
+                        if (v) {
+                            // FIX: Vector3 wrapper from bridge exposes .x/.y/.z
+                            // instance properties that bypass the boxed-handle
+                            // 16-byte header problem. Direct read of v.handle
+                            // would give header bytes (zeros) instead of floats.
+                            pos = [v.x, v.y, v.z];
                         }
                     } catch (e) {}
                 }
