@@ -75,10 +75,41 @@ Il2Cpp.perform(function () {
     // Using cam.method('get_xxx').invoke(cam) returns an unboxed wrapper.
     // FIX: bridge sometimes auto-strips `get_` prefix. Try with prefix first,
     // fall back to no-prefix before falling back to .property() (last resort).
-    var getW2C   = safe(function(){ return camClass.method('get_worldToCameraMatrix'); }, null)
-                || safe(function(){ return camClass.method('worldToCameraMatrix'); }, null);
-    var getProj  = safe(function(){ return camClass.method('get_projectionMatrix'); }, null)
-                || safe(function(){ return camClass.method('projectionMatrix'); }, null);
+    // FIX(R12): method discovery — bridge v0.13.1 may expose worldToCameraMatrix /
+    // projectionMatrix under different IL2CPP method names. Iterate camClass.methods
+    // at init to discover the actual names. Diagnostic dump helps user debug if
+    // all strategies fail.
+    var w2cMethodNames = [];
+    var projMethodNames = [];
+    try {
+        console.log('[*] R12 DIAG: camClass.instanceSize=' + (camClass.instanceSize || '?') + ', ns=' + (camClass.namespace || '?'));
+        var _methods = camClass.methods;
+        for (var _mi = 0; _mi < _methods.length; _mi++) {
+            var _m = _methods[_mi];
+            if (_m && _m.name) {
+                if (/worldToCameraMatrix|WorldToCameraMatrix/i.test(_m.name)) w2cMethodNames.push(_m.name);
+                if (/projectionMatrix|ProjectionMatrix/i.test(_m.name)) projMethodNames.push(_m.name);
+            }
+        }
+        console.log('[*] R12 DIAG: w2c candidates: ' + (w2cMethodNames.length ? w2cMethodNames.join(', ') : '(NONE)'));
+        console.log('[*] R12 DIAG: proj candidates: ' + (projMethodNames.length ? projMethodNames.join(', ') : '(NONE)'));
+    } catch (e) {
+        console.log('[!] R12 DIAG: camClass.methods iteration failed: ' + e.message);
+    }
+    // Hard-coded fallback names if discovery yielded nothing.
+    if (w2cMethodNames.length === 0) w2cMethodNames = ['get_worldToCameraMatrix', 'worldToCameraMatrix'];
+    if (projMethodNames.length === 0) projMethodNames = ['get_projectionMatrix', 'projectionMatrix'];
+    function _r12ResolveGetter(cls, candidates, kind) {
+        for (var i = 0; i < candidates.length; i++) {
+            try {
+                var m = cls.method(candidates[i]);
+                if (m) { console.log('[*] R12: ' + kind + ' resolved via class.method("' + candidates[i] + '")'); return m; }
+            } catch (e) {}
+        }
+        return null;
+    }
+    var getW2C  = _r12ResolveGetter(camClass, w2cMethodNames, 'w2c');
+    var getProj = _r12ResolveGetter(camClass, projMethodNames, 'proj');
     // Camera.main getter: frida-il2cpp-bridge v0.13.1 иногда не экспортирует статические
     // Unity getters через .property(); пробуем сначала method('get_main') (.invoke(null)),
     // и только если его нет — fallback на .property('main').get(null).
@@ -118,7 +149,23 @@ Il2Cpp.perform(function () {
     var lastBindPath = 'unset';
     var widthProp = safe(function(){ return camClass.property('pixelWidth'); }, null);
     var heightProp = safe(function(){ return camClass.property('pixelHeight'); }, null);
-    var transformProp = safe(function(){ return camClass.property('transform'); }, null);
+    // FIX(R16): use method('get_transform').invoke(cam) instead of property('transform').get(cam).
+    // frida-il2cpp-bridge v0.13.1's .property() returns NULL for inherited Component properties
+    // like 'transform' (which is declared on Component, not Camera). The .method() API works
+    // for the C# property getter. Live R15 test confirmed: transformProp=null → R15's
+    // `if (!transformProp) return null;` returned silently, no diagnostic.
+    // FIX(R17): live R16 test showed bridge throws `cannot invoke non-static method get_transform
+    // as it must be invoked through a Il2Cpp.Object, not a Il2Cpp.Class` when calling
+    // `camClass.method('get_transform').invoke(cam)`. The bridge's invocation check rejects
+    // the class-based method handle. Workaround: get the method from the INSTANCE
+    // (`cam.method('get_transform')`) per-call (instance method lookup has a different
+    // invocation path). Cache the handle per fresh cam to avoid 5Hz lookups.
+    var getTransform = null;  // R17: don't pre-resolve; resolve per-call from cam instance
+    // FIX(R14): pre-resolve Transform class for pointer-chase verification. The class
+    // object has a `.handle` field pointing at the Il2CppClass* struct (NOT an instance).
+    // We compare the class pointer of candidate Transform instances against this to confirm
+    // the chase landed on a real Transform (vs random heap).
+    var transformClass = safe(function(){ return Il2Cpp.domain.class('UnityEngine.Transform'); }, null);
 
     // FIX: rotating cursor по массиву GOs — на каждом scan сдвигаем на MAX_GO_SCAN вперёд,
     // чтобы через ~125 секунд (5000 GOs / 200 per tick / 5s/tick) просканировать весь список.
@@ -145,6 +192,263 @@ Il2Cpp.perform(function () {
     // once-only disable flag для diagnostic visibility.
     var getComponentMethodBroken = false;
     var __getComponentMethodWarned = false;
+
+    // FIX(R13): 4x4 matrix inverse for column-major 16-float array.
+    // Unity Camera.worldToCameraMatrix = transform.worldToLocalMatrix = inverse(transform.localToWorldMatrix).
+    // Unity Camera C# class does NOT store worldToCameraMatrix as a field; it's computed on the fly.
+    // But Transform.m_LocalToWorld (Matrix4x4, 64 bytes column-major) IS stored as a field at
+    // Transform instance +0x10. We read it raw, invert in pure JS, get our worldToCameraMatrix.
+    // Algorithm: cofactor expansion / adjugate (MESA GLU mtxinv, public domain).
+    function _matrixInverse4x4(m) {
+        // m is column-major: m[c*4 + r] = element at row r, col c
+        function a(r, c) { return m[c * 4 + r]; }
+        var inv = new Array(16);
+        inv[0]  =  a(1,1)*a(2,2)*a(3,3) + a(1,3)*a(2,1)*a(3,2) + a(1,2)*a(2,3)*a(3,1)
+                 - a(1,1)*a(2,3)*a(3,2) - a(1,2)*a(2,1)*a(3,3) - a(1,3)*a(2,2)*a(3,1);
+        inv[4]  =  a(0,1)*a(2,3)*a(3,2) + a(0,2)*a(2,1)*a(3,3) + a(0,3)*a(2,2)*a(3,1)
+                 - a(0,1)*a(2,2)*a(3,3) - a(0,2)*a(2,3)*a(3,1) - a(0,3)*a(2,1)*a(3,2);
+        inv[8]  =  a(0,1)*a(1,2)*a(3,3) + a(0,3)*a(1,1)*a(3,2) + a(0,2)*a(1,3)*a(3,1)
+                 - a(0,1)*a(1,3)*a(3,2) - a(0,3)*a(1,2)*a(3,1) - a(0,2)*a(1,1)*a(3,3);
+        inv[12] =  a(0,1)*a(1,3)*a(2,2) + a(0,2)*a(1,1)*a(2,3) + a(0,3)*a(1,2)*a(2,1)
+                 - a(0,1)*a(1,2)*a(2,3) - a(0,3)*a(1,1)*a(2,2) - a(0,2)*a(1,3)*a(2,1);
+        inv[1]  =  a(1,0)*a(2,3)*a(3,2) + a(1,2)*a(2,0)*a(3,3) + a(1,3)*a(2,2)*a(3,0)
+                 - a(1,0)*a(2,2)*a(3,3) - a(1,3)*a(2,0)*a(3,2) - a(1,2)*a(2,3)*a(3,0);
+        inv[5]  =  a(0,0)*a(2,2)*a(3,3) + a(0,3)*a(2,0)*a(3,2) + a(0,2)*a(2,3)*a(3,0)
+                 - a(0,0)*a(2,3)*a(3,2) - a(0,2)*a(2,0)*a(3,3) - a(0,3)*a(2,2)*a(3,0);
+        inv[9]  =  a(0,0)*a(1,3)*a(3,2) + a(0,2)*a(1,0)*a(3,3) + a(0,3)*a(1,2)*a(3,0)
+                 - a(0,0)*a(1,2)*a(3,3) - a(0,3)*a(1,0)*a(3,2) - a(0,2)*a(1,3)*a(3,0);
+        inv[13] =  a(0,0)*a(1,2)*a(2,3) + a(0,3)*a(1,0)*a(2,2) + a(0,2)*a(1,3)*a(2,0)
+                 - a(0,0)*a(1,3)*a(2,2) - a(0,2)*a(1,0)*a(2,3) - a(0,3)*a(1,2)*a(2,0);
+        inv[2]  =  a(1,0)*a(2,1)*a(3,3) + a(1,3)*a(2,0)*a(3,1) + a(1,1)*a(2,3)*a(3,0)
+                 - a(1,0)*a(2,3)*a(3,1) - a(1,1)*a(2,0)*a(3,3) - a(1,3)*a(2,1)*a(3,0);
+        inv[6]  =  a(0,0)*a(2,3)*a(3,1) + a(0,1)*a(2,0)*a(3,3) + a(0,3)*a(2,1)*a(3,0)
+                 - a(0,0)*a(2,1)*a(3,3) - a(0,3)*a(2,0)*a(3,1) - a(0,1)*a(2,3)*a(3,0);
+        inv[10] =  a(0,0)*a(1,1)*a(3,3) + a(0,3)*a(1,0)*a(3,1) + a(0,1)*a(1,3)*a(3,0)
+                 - a(0,0)*a(1,3)*a(3,1) - a(0,1)*a(1,0)*a(3,3) - a(0,3)*a(1,1)*a(3,0);
+        inv[14] =  a(0,0)*a(1,3)*a(2,1) + a(0,1)*a(1,0)*a(2,3) + a(0,3)*a(1,1)*a(2,0)
+                 - a(0,0)*a(1,1)*a(2,3) - a(0,3)*a(1,0)*a(2,1) - a(0,1)*a(1,3)*a(2,0);
+        inv[3]  =  a(1,1)*a(2,0)*a(3,2) + a(1,2)*a(2,1)*a(3,0) + a(1,0)*a(2,2)*a(3,1)
+                 - a(1,0)*a(2,1)*a(3,2) - a(1,1)*a(2,2)*a(3,0) - a(1,2)*a(2,0)*a(3,1);
+        inv[7]  =  a(0,0)*a(2,1)*a(3,2) + a(0,2)*a(2,0)*a(3,1) + a(0,1)*a(2,2)*a(3,0)
+                 - a(0,0)*a(2,2)*a(3,1) - a(0,1)*a(2,0)*a(3,2) - a(0,2)*a(2,1)*a(3,0);
+        inv[11] =  a(0,0)*a(1,2)*a(3,1) + a(0,1)*a(1,0)*a(3,2) + a(0,2)*a(1,1)*a(3,0)
+                 - a(0,0)*a(1,1)*a(3,2) - a(0,2)*a(1,0)*a(3,1) - a(0,1)*a(1,2)*a(3,0);
+        inv[15] =  a(0,0)*a(1,1)*a(2,2) + a(0,1)*a(1,2)*a(2,0) + a(0,2)*a(1,0)*a(2,1)
+                 - a(0,0)*a(1,2)*a(2,1) - a(0,1)*a(1,0)*a(2,2) - a(0,2)*a(1,1)*a(2,0);
+        // Determinant (cofactor expansion along row 0). |det| < 1e-8 → singular.
+        var det = a(0,0)*inv[0] + a(0,1)*inv[4] + a(0,2)*inv[8] + a(0,3)*inv[12];
+        if (Math.abs(det) < 1e-8) return null;
+        var invDet = 1.0 / det;
+        for (var i = 0; i < 16; i++) inv[i] *= invDet;
+        return inv;
+    }
+
+    // FIX(R15): Try Strategy 5 — call transform.get_worldToLocalMatrix() via bridge.
+    // This is the CLEANEST path: Unity 2021+ computes w2c on the fly, the C# method
+    // returns it as a Matrix4x4 value-type. The bridge wraps the returned struct with
+    // named float fields (m00, m01, ..., m33) — same pattern as Vector3's .x/.y/.z.
+    // We read 16 named fields in column-major order, return as a 16-float array.
+    // matrix4x4ToFloats has an Array.isArray branch that handles this directly.
+    // R14's pointer-chase is kept as Strategy 5b fallback (also broken in this Unity
+    // build — m_Transform is at an offset we didn't try).
+    function tryReadW2CFromTransformMethod(cam) {
+        try {
+            // R17: get the method from the INSTANCE, not the class. bridge v0.13.1's
+            // `camClass.method('get_transform').invoke(cam)` throws (class-vs-object check).
+            // `cam.method('get_transform')` resolves the instance-level method which has
+            // a different invocation path. Fallback chain: instance method → instance
+            // property → class method on Component.
+            var getTransformInst = null;
+            try { getTransformInst = cam.method('get_transform'); } catch (eMC) {
+                if (pollTickNum === 1) console.log('[*] R17: cam.method("get_transform") THREW: ' + eMC.message);
+            }
+            if (!getTransformInst) {
+                // Fallback A: try instance-level property access (FIX R19: .get() no args)
+                try {
+                    var transformPropInst = cam.property('transform');
+                    if (transformPropInst) {
+                        var t = transformPropInst.get();
+                        if (t) { getTransformInst = { _transform: t }; }
+                    }
+                } catch (ePA) {}
+            }
+            if (!getTransformInst) {
+                if (pollTickNum === 1) console.log('[*] R19: no working get_transform accessor on cam instance');
+                return null;
+            }
+            var transform = null;
+            if (getTransformInst._transform) {
+                transform = getTransformInst._transform;  // property fallback
+            } else {
+                // FIX(R18): bridge v0.13.1's `cam.method('get_transform')` returns a method
+                // handle that needs 0 explicit args — the receiver (cam) is implicit. Calling
+                // `.invoke(cam)` threw 'needs 0 parameter(s), not 1'. Use `.invoke()` (no args).
+                try { transform = getTransformInst.invoke(); } catch (eGT) {
+                    if (pollTickNum === 1) console.log('[!] R18: get_transform.invoke() THREW: ' + eGT.message);
+                    return null;
+                }
+            }
+            if (!transform) {
+                if (pollTickNum === 1) console.log('[*] R18: get_transform returned null/undefined');
+                return null;
+            }
+            var getW2LM = safe(function(){ return transform.method('get_worldToLocalMatrix'); }, null);
+            if (!getW2LM) {
+                if (pollTickNum === 1) console.log('[*] R19: no get_worldToLocalMatrix method on Transform class');
+                return null;
+            }
+            // FIX(R19): bridge v0.13.1 treats 0-arg property-getter methods as 0-arg functions
+            // with implicit receiver. Same fix as R18 for get_transform.
+            var w2lm = null;
+            try { w2lm = getW2LM.invoke(); } catch (eI) {
+                if (pollTickNum === 1) console.log('[!] R19: get_worldToLocalMatrix.invoke() THREW: ' + eI.message);
+                return null;
+            }
+            if (!w2lm) {
+                if (pollTickNum === 1) console.log('[*] R15: get_worldToLocalMatrix returned null');
+                return null;
+            }
+            // Primary: named field access. C# Matrix4x4 has fields m00..m33. Bridge v0.13.1
+            // exposes these as JS properties on the value-type wrapper.
+            if (typeof w2lm.m00 === 'number' && typeof w2lm.m33 === 'number') {
+                // m_rc = M[r][c] in C# field naming. Column-major memory layout: M[r][c] is at
+                // byte offset (c*4 + r)*4. So column-major flat array is:
+                //   m00, m10, m20, m30, m01, m11, m21, m31, m02, m12, m22, m32, m03, m13, m23, m33
+                var floats = [
+                    w2lm.m00, w2lm.m10, w2lm.m20, w2lm.m30,
+                    w2lm.m01, w2lm.m11, w2lm.m21, w2lm.m31,
+                    w2lm.m02, w2lm.m12, w2lm.m22, w2lm.m32,
+                    w2lm.m03, w2lm.m13, w2lm.m23, w2lm.m33
+                ];
+                if (pollTickNum === 1) console.log('[*] R15: w2c from transform.get_worldToLocalMatrix() named fields (m00..m33) — 16 floats');
+                return floats;  // matrix4x4ToFloats: Array.isArray branch returns slice(0, 16)
+            }
+            // Fallback: .handle. If bridge gave us a wrapper with a raw .handle, let
+            // matrix4x4ToFloats try the standard read pattern.
+            if (w2lm.handle) {
+                if (pollTickNum === 1) console.log('[*] R15: w2c from transform.get_worldToLocalMatrix() .handle (no named fields)');
+                return w2lm;
+            }
+            if (pollTickNum === 1) console.log('[*] R15: get_worldToLocalMatrix wrapper has no m00/m33 AND no .handle — keys: ' + Object.keys(w2lm).join(','));
+        } catch (e) {
+            if (pollTickNum === 1) console.log('[!] R15: tryReadW2CFromTransformMethod THREW: ' + e.message);
+        }
+        return null;
+    }
+
+    // FIX(R14): Try Strategy 5b — chase m_Transform pointer from cam instance manually.
+    // R15 (Strategy 5, method-call) is preferred; this is a raw-memory fallback.
+    // Camera inherits from Behaviour → Component → Object. m_Transform offset varies by
+    // Unity version. R14 live test: all candidate offsets failed (0x10 hit monitor block
+    // with all-zero +0x10, others were null pointers). Strategy 5b may be DEAD for this
+    // build, but kept for completeness in case future Unity versions shift offsets.
+    function tryReadW2CFromTransform(cam) {
+        try {
+            if (!cam || !cam.handle) return null;
+            // Candidate offsets for Camera.m_Transform (Component.m_Transform field). Different
+            // Unity IL2CPP versions place this at different offsets. R13 Strategy 5b found
+            // m_ProjectionMatrix at cam+0x20 — so m_Transform is likely BEFORE +0x20 (probably
+            // +0x18). Try multiple offsets, earliest valid pointer wins.
+            var offsets = [0x18, 0x20, 0x28, 0x10, 0x30];
+            var heapMin = 0x700000000000, heapMax = 0x800000000000;
+            var tClassPtr = null;
+            try { tClassPtr = (transformClass && transformClass.handle) ? transformClass.handle : null; } catch (eT) {}
+            for (var oi = 0; oi < offsets.length; oi++) {
+                var off = offsets[oi];
+                var transPtr = null;
+                try { transPtr = cam.handle.add(off).readPointer(); } catch (eR) { continue; }
+                if (!transPtr || transPtr.isNull()) continue;
+                if (transPtr.compare(heapMin) < 0 || transPtr.compare(heapMax) > 0) continue;
+                // Verify class pointer of candidate Transform instance matches Transform class.
+                // Instance +0x00 is its Il2CppClass*; class.handle is the same pointer.
+                var classOk = false;
+                if (tClassPtr) {
+                    try {
+                        var instClassPtr = transPtr.readPointer();
+                        classOk = instClassPtr.equals(tClassPtr);
+                    } catch (eC) { classOk = false; }
+                }
+                // Read m_LocalToWorld at transPtr+0x10
+                var l2w = null;
+                try {
+                    var buf = transPtr.add(0x10).readByteArray(64);
+                    var dv = new DataView(new Uint8Array(buf).buffer);
+                    l2w = [];
+                    for (var i = 0; i < 16; i++) l2w.push(dv.getFloat32(i * 4, true));
+                } catch (eL) { continue; }
+                // Sanity: row 3 of column-major Matrix4x4 = [0, 0, 0, 1]
+                var sane = Math.abs(l2w[3]) < 1e-2 && Math.abs(l2w[7]) < 1e-2
+                        && Math.abs(l2w[11]) < 1e-2 && Math.abs(l2w[15] - 1.0) < 1e-2;
+                if (!sane) {
+                    if (pollTickNum === 1) console.log('[*] R14: cam+0x' + off.toString(16) +
+                        ' → trans+0x10 sanity FAILED (m[3,7,11,15]=' +
+                        l2w[3].toFixed(2) + ',' + l2w[7].toFixed(2) + ',' + l2w[11].toFixed(2) + ',' + l2w[15].toFixed(2) +
+                        ') classOk=' + classOk);
+                    continue;
+                }
+                // Passed all gates — invert the matrix
+                var inv = _matrixInverse4x4(l2w);
+                if (!inv) {
+                    if (pollTickNum === 1) console.log('[*] R14: cam+0x' + off.toString(16) +
+                        ' m_LocalToWorld singular (det≈0)');
+                    continue;
+                }
+                if (pollTickNum === 1) console.log('[*] R14: w2c computed from cam+0x' + off.toString(16) +
+                    ' → trans+0x10 (m_LocalToWorld) inverse — classOk=' + classOk +
+                    ' l2w[0,5,10,15]=' + l2w[0].toFixed(3) + ',' + l2w[5].toFixed(3) + ',' + l2w[10].toFixed(3) + ',' + l2w[15].toFixed(3));
+                // Fake struct wrapper compatible with matrix4x4ToFloats (m.handle.add(i*4).readFloat())
+                return { handle: { add: function(byteOff) { return { readFloat: function() { return inv[byteOff / 4]; } }; } } };
+            }
+            if (pollTickNum === 1) console.log('[*] R14: no valid m_LocalToWorld found at any of ' + offsets.map(function(o){return '0x'+o.toString(16);}).join(','));
+        } catch (e) {
+            if (pollTickNum === 1) console.log('[!] R14: tryReadW2CFromTransform THREW: ' + e.message);
+        }
+        return null;
+    }
+
+    // FIX(R13): Try Strategy 5b for projectionMatrix — scan cam+0..0x200 for plausible
+    // perspective pattern. Unity perspective: row 3 = [0, 0, -1, 0] (DX/GL) or
+    // [0, 0, near/(near-far), 2*near*far/(near-far)] (raw). Scan for row 3 where
+    // m[3]≈0, m[7]≈0, m[15]≈0, and rotation 3x3 cells bounded.
+    function tryReadProjFromCamMemory(cam) {
+        try {
+            var buf = cam.handle.readByteArray(512);
+            var ba = new Uint8Array(buf);
+            var dv = new DataView(ba.buffer, ba.byteOffset, ba.byteLength);
+            var bestScore = -1, bestOff = -1;
+            for (var off = 0; off <= 448; off += 16) {
+                var m03 = dv.getFloat32(off + 12, true);
+                var m13 = dv.getFloat32(off + 28, true);
+                var m23 = dv.getFloat32(off + 44, true);
+                var m33 = dv.getFloat32(off + 60, true);
+                var s = 0;
+                // Unity perspective row 3: [0, 0, ±something, 0] — m[3] and m[7] should be ~0
+                if (Math.abs(m03) < 1e-2 && Math.abs(m13) < 1e-2 && Math.abs(m33) < 1e-2) s += 5;
+                // m[15] is -1 or +1 (perspective marker) — or near it
+                if (Math.abs(Math.abs(m23) - 1.0) < 0.5) s += 2;
+                if (s > 0) {
+                    // 9 rotation cells should be bounded (not huge values)
+                    for (var r = 0; r < 9; r++) {
+                        var v = dv.getFloat32(off + r * 4, true);
+                        if (v >= -10.0 && v <= 10.0) s++;
+                    }
+                    if (s > bestScore) { bestScore = s; bestOff = off; }
+                }
+            }
+            if (bestScore >= 10) {
+                var floats = [];
+                for (var i = 0; i < 16; i++) floats.push(dv.getFloat32(bestOff + i * 4, true));
+                if (pollTickNum === 1) console.log('[*] R13: proj found at cam+0x' + bestOff.toString(16) + ' score=' + bestScore);
+                var _arr = floats;
+                return { handle: { add: function(byteOff) { return { readFloat: function() { return _arr[byteOff / 4]; } }; } } };
+            } else if (pollTickNum === 1) {
+                console.log('[*] R13: no plausible projectionMatrix in cam+0..0x200 (bestScore=' + bestScore + ')');
+            }
+        } catch (e) {
+            if (pollTickNum === 1) console.log('[!] R13: tryReadProjFromCamMemory THREW: ' + e.message);
+        }
+        return null;
+    }
 
     var tickInterval = setInterval(function () {
         pollTickNum++;
@@ -367,32 +671,94 @@ Il2Cpp.perform(function () {
             // struct wrapper whose .handle points at the raw 64-byte block.
             // (getW2C / getProj pre-declared outside the setInterval to avoid
             // 5 Hz GC pressure from per-tick safe() closures.)
-            var w2c = null;
-            if (getW2C) {
-                try { w2c = getW2C.invoke(cam); } catch (e) {}
-            } else if (wtcmProp) {
-                // FIX: explicit warning so user knows JSON may contain garbage.
-                console.log('[!] cam.get_worldToCameraMatrix() missing — falling back to .property() (boxed-handle risk; m[0..11] may be zeros)');
-                try { w2c = wtcmProp.get(cam); } catch (e) {}
+            // FIX(R12): matrix read — 4-strategy fallback chain.
+            // Strategy 1: bridge method getW2C.invoke(cam) — preferred, unboxed struct wrapper.
+            // Strategy 2: bridge method without arg (some bridge versions differ).
+            // Strategy 3: bridge property wtcmProp.get(cam) — boxed, header is 16 bytes of garbage.
+            // Strategy 4: direct memory scan on cam.handle — looks for plausible
+            //   Matrix4x4 pattern (rotation 3x3 in [-1,1] + homogeneous row 3 ≈ [0,0,0,1]).
+            var w2c = null, proj = null;
+            function _r12Invoke(getter) {
+                if (!getter) return null;
+                try { return getter.invoke(cam); } catch (e) {
+                    try { return getter.invoke(); } catch (e2) {}
+                }
+                return null;
             }
-
-            var proj = null;
-            if (getProj) {
-                try { proj = getProj.invoke(cam); } catch (e) {}
-            } else if (projProp) {
-                console.log('[!] cam.get_projectionMatrix() missing — falling back to .property() (boxed-handle risk)');
-                try { proj = projProp.get(cam); } catch (e) {}
+            w2c = _r12Invoke(getW2C);
+            if (!w2c && wtcmProp) { try { w2c = wtcmProp.get(cam); } catch(e){} }
+            proj = _r12Invoke(getProj);
+            if (!proj && projProp) { try { proj = projProp.get(cam); } catch(e){} }
+            // FIX(R13): Strategy 5b — scan cam+0..0x200 for plausible projection matrix
+            // pattern (row 3 has [0,0,?,0]). Different from w2c's [0,0,0,1] row 3.
+            if (!proj) proj = tryReadProjFromCamMemory(cam);
+            // Strategy 4: memory scan fallback for w2c only (projection has different
+            // homogeneous-row pattern: [0,0,-1,0] not [0,0,0,1], so we don't try to scan).
+            if (!w2c) {
+                try {
+                    var _buf = cam.handle.readByteArray(256);
+                    var _ba = new Uint8Array(_buf);
+                    var _dv = new DataView(_ba.buffer, _ba.byteOffset, _ba.byteLength);
+                    var bestScore = -1, bestOff = -1;
+                    for (var off = 0; off <= 192; off += 16) {
+                        // Column-major: row 3 cells at indices 3, 7, 11, 15 (every 4 floats + 3 byte offset)
+                        var m03 = _dv.getFloat32(off + 12, true);
+                        var m13 = _dv.getFloat32(off + 28, true);
+                        var m23 = _dv.getFloat32(off + 44, true);
+                        var m33 = _dv.getFloat32(off + 60, true);
+                        var s = 0;
+                        if (Math.abs(m03) < 1e-2 && Math.abs(m13) < 1e-2 && Math.abs(m23) < 1e-2 && Math.abs(m33 - 1.0) < 1e-2) s += 10;
+                        if (s > 0) {
+                            // 9 rotation cells in [-1, 1]
+                            for (var r = 0; r < 9; r++) {
+                                var v = _dv.getFloat32(off + r*4, true);
+                                if (v >= -1.05 && v <= 1.05) s++;
+                            }
+                            if (s > bestScore) { bestScore = s; bestOff = off; }
+                        }
+                    }
+                    if (bestScore >= 12) {
+                        var floats = [];
+                        for (var i = 0; i < 16; i++) floats.push(_dv.getFloat32(bestOff + i*4, true));
+                        // Build a fake struct wrapper compatible with matrix4x4ToFloats
+                        // (uses m.handle.add(byteOff).readFloat() pattern).
+                        var _arr = floats;
+                        w2c = { handle: { add: function(byteOff) { return { readFloat: function() { return _arr[byteOff/4]; } }; } } };
+                        if (pollTickNum === 1) console.log('[*] tick#1: R12 Strategy 4 scan — w2c at cam+0x' + bestOff.toString(16) + ' score=' + bestScore);
+                    } else if (pollTickNum === 1) {
+                        console.log('[*] tick#1: R12 Strategy 4 scan — no plausible worldToCameraMatrix in cam+0..0xF0 (bestScore=' + bestScore + ')');
+                    }
+                } catch (e) {
+                    if (pollTickNum === 1) console.log('[!] tick#1: R12 Strategy 4 scan THREW: ' + e.message);
+                }
             }
+            // FIX(R15): Strategy 5 — w2c = transform.get_worldToLocalMatrix() via bridge
+            // (named-field access). R14's pointer-chase failed live (m_Transform offset
+            // not at any tried offset), so this is now the PRIMARY path. Returns float[16].
+            if (!w2c) w2c = tryReadW2CFromTransformMethod(cam);
+            // FIX(R14): Strategy 5b — pointer-chase fallback. Kept for completeness; may
+            // work in other Unity versions where m_Transform is at an offset we tried.
+            if (!w2c) w2c = tryReadW2CFromTransform(cam);
 
             // FIX: Vector3 is 12-byte value struct — same boxing problem.
             // Use get_position() method instead of property->get() to get unboxed.
+            // FIX(R18): per R18 fix, bridge v0.13.1 needs `.invoke()` (no args) for instance
+            // methods on the bridge wrapper. Cached via latchedCam-bind to avoid 5Hz re-lookup.
             var pos = null;
-            var transform = safe(function(){ return transformProp ? transformProp.get(cam) : null; }, null);
+            var transform = safe(function(){
+                if (!cam) return null;
+                var gt = null;
+                try { gt = cam.method('get_transform'); } catch (eGTP) { return null; }
+                if (!gt) return null;
+                try { return gt.invoke(); } catch (eGTI) { return null; }
+            }, null);
             if (transform) {
+                // FIX(R19): get_position is a 0-arg property getter on Transform. Bridge v0.13.1
+                // requires `.invoke()` (no args), not `.invoke(transform)`.
                 var getPos = safe(function(){ return transform.method('get_position'); }, null);
                 if (getPos) {
                     try {
-                        var v = getPos.invoke(transform);
+                        var v = getPos.invoke();
                         if (v) {
                             // FIX: Vector3 wrapper from bridge exposes .x/.y/.z
                             // instance properties that bypass the boxed-handle
