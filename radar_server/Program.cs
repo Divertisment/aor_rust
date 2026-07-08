@@ -7,6 +7,7 @@
 // ============================================================================
 using System.Net.Sockets;
 using System.Text;
+using AorRadar.Server;  // FIX(R22): MatrixProjector lives here; top-level statements Program.cs is in the global namespace, so need explicit using.
 
 const string SocketPath = "/tmp/aor_radar.sock";
 const int    Backlog    = 4;
@@ -27,6 +28,13 @@ Console.WriteLine($"[ok]   bound. Waiting for AOR Scanner producers...");
 
 var cts = new System.Threading.CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); listener.Close(); };
+
+// FIX(R20): start MatrixProjector as background task — polls frida camera-matrix JSON
+// and AOR scanner entities JSON, projects every entity through the view transform,
+// writes /tmp/aor_screen_positions.json for the web panel. Independent of the UDS
+// listener loop (matrix producer doesn't need to push via UDS — it shares the JSON
+// file with the AOR_core scanner + frida).
+_ = Task.Run(() => new MatrixProjector(cts.Token).Run());
 
 int tickCount = 0;
 while (!cts.IsCancellationRequested)
